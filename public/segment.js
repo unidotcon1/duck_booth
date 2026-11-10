@@ -338,16 +338,68 @@
   function mergeBody(m1, w, h, mp, k) {
     var n = w * h, i, m2 = resample(mp.m, mp.w, mp.h, w, h);
     cleanMask(m2, w, h, 0.04, 0.01, false);
-    var bin = new Float32Array(n), fg = 0;
-    for (i = 0; i < n; i++) if (m1[i] > 0.5) { bin[i] = 1; fg++; }
+    var orig = new Uint8Array(n), bin = new Float32Array(n), fg = 0;
+    for (i = 0; i < n; i++) if (m1[i] > 0.5) { orig[i] = 1; bin[i] = 1; fg++; }
     if (!fg) { for (i = 0; i < n; i++) m1[i] = Math.max(m1[i], k * m2[i]); return; }
-    var D = Math.max(2, Math.round(0.3 * Math.sqrt(fg))), tmp = new Float32Array(n);
+    var D = Math.max(2, Math.round(0.05 * Math.sqrt(fg))), tmp = new Float32Array(n);
     boxBlur(bin, w, h, D, tmp);
     for (i = 0; i < n; i++) {
       var t = (m2[i] - 0.5) / 0.4; t = t < 0 ? 0 : t > 1 ? 1 : t; t = t * t * (3 - 2 * t);
       var near = bin[i] / 0.12; near = near > 1 ? 1 : near;
-      var v = k * t * near;
+      // MODNet's own weak support (>0.05) also licenses the prior; far background (matte ~0) does not
+      var ev = (m1[i] - 0.05) / 0.25; ev = ev < 0 ? 0 : ev > 1 ? 1 : ev;
+      var v = k * t * (near > ev ? near : ev);
       if (v > m1[i]) m1[i] = v;
+    }
+    var q;
+    // added-only blobs (merged pixels beyond the original matte) must be substantial (a missing shoulder,
+    // not a fringe of background): drop blobs smaller than 3% of the matte area.
+    var lab0 = new Uint8Array(n), st0 = new Int32Array(n), cp0 = new Int32Array(n), a, b, c0, X0, Y0, ddx, ddy;
+    for (i = 0; i < n; i++) {
+      if (m1[i] <= 0.5 || orig[i] || lab0[i]) continue;
+      a = 0; b = 0; st0[a++] = i; lab0[i] = 1;
+      while (a) {
+        c0 = st0[--a]; cp0[b++] = c0; X0 = c0 % w; Y0 = (c0 / w) | 0;
+        for (ddy = -1; ddy <= 1; ddy++) for (ddx = -1; ddx <= 1; ddx++) {
+          var xn = X0 + ddx, yn = Y0 + ddy;
+          if (xn < 0 || xn >= w || yn < 0 || yn >= h) continue;
+          var jn = yn * w + xn;
+          if (m1[jn] > 0.5 && !orig[jn] && !lab0[jn]) { lab0[jn] = 1; st0[a++] = jn; }
+        }
+      }
+      if (b < 0.03 * fg) for (q = 0; q < b; q++) {
+        var cc = cp0[q], ccx = cc % w, ccy = (cc / w) | 0;
+        for (ddy = -2; ddy <= 2; ddy++) for (ddx = -2; ddx <= 2; ddx++) {
+          var X1 = ccx + ddx, Y1 = ccy + ddy;
+          if (X1 >= 0 && X1 < w && Y1 >= 0 && Y1 < h && !orig[Y1 * w + X1]) m1[Y1 * w + X1] = 0;
+        }
+      }
+    }
+    // MediaPipe-only pixels must be CONTIGUOUS with the matte: drop merged components (8-connected,
+    // alpha > 0.5) that contain no original MODNet foreground pixel.
+    var lab = new Uint8Array(n), stack = new Int32Array(n), comp = new Int32Array(n), sp, cn, hasOrig, k2, x, dx, dy;
+    for (i = 0; i < n; i++) {
+      if (m1[i] <= 0.5 || lab[i]) continue;
+      sp = 0; cn = 0; hasOrig = false; stack[sp++] = i; lab[i] = 1;
+      while (sp) {
+        k2 = stack[--sp]; comp[cn++] = k2; if (orig[k2]) hasOrig = true;
+        x = k2 % w;
+        for (dy = -1; dy <= 1; dy++) for (dx = -1; dx <= 1; dx++) {
+          if (!dx && !dy) continue;
+          var xx = x + dx, yy = ((k2 / w) | 0) + dy;
+          if (xx < 0 || xx >= w || yy < 0 || yy >= h) continue;
+          var j = yy * w + xx;
+          if (m1[j] > 0.5 && !lab[j]) { lab[j] = 1; stack[sp++] = j; }
+        }
+      }
+      if (!hasOrig) for (q = 0; q < cn; q++) {
+        // clear the blob and its soft fringe
+        var c = comp[q], cx = c % w, cy = (c / w) | 0;
+        for (dy = -2; dy <= 2; dy++) for (dx = -2; dx <= 2; dx++) {
+          var X = cx + dx, Y = cy + dy;
+          if (X >= 0 && X < w && Y >= 0 && Y < h && !orig[Y * w + X]) m1[Y * w + X] = 0;
+        }
+      }
     }
   }
 
