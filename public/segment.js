@@ -144,8 +144,11 @@
     }
     if (!cur) return;
     var max = 0; for (i = 1; i <= cur; i++) if (sizes[i] > max) max = sizes[i];
-    var bin = new Uint8Array(n);
-    for (i = 0; i < n; i++) if (lab[i] && sizes[lab[i]] >= max * minFrac) bin[i] = 1;
+    var bin = new Uint8Array(n), edge = new Uint8Array(cur + 1);
+    for (x = 0; x < w; x++) { edge[lab[x]] = 1; edge[lab[(h - 1) * w + x]] = 1; }
+    for (var yb = 0; yb < h; yb++) { edge[lab[yb * w]] = 1; edge[lab[yb * w + w - 1]] = 1; }
+    // never drop a blob that touches the frame border (e.g. shoulders cropped by the frame) or is big enough
+    for (i = 0; i < n; i++) if (lab[i] && (edge[lab[i]] || sizes[lab[i]] >= max * minFrac)) bin[i] = 1;
     // drop small blobs (dilate kept by 2 cells first so their soft fringe is not cut)
     var d = bin.slice(), d2 = new Uint8Array(n), pass;
     for (pass = 0; pass < 2; pass++) {
@@ -330,6 +333,24 @@
     }
   }
 
+  // body prior: merge the MediaPipe person mask into the matte so large low-confidence regions
+  // (shoulders / torso that MODNet drops) are kept, but only near the matte foreground.
+  function mergeBody(m1, w, h, mp, k) {
+    var n = w * h, i, m2 = resample(mp.m, mp.w, mp.h, w, h);
+    cleanMask(m2, w, h, 0.04, 0.01, false);
+    var bin = new Float32Array(n), fg = 0;
+    for (i = 0; i < n; i++) if (m1[i] > 0.5) { bin[i] = 1; fg++; }
+    if (!fg) { for (i = 0; i < n; i++) m1[i] = Math.max(m1[i], k * m2[i]); return; }
+    var D = Math.max(2, Math.round(0.3 * Math.sqrt(fg))), tmp = new Float32Array(n);
+    boxBlur(bin, w, h, D, tmp);
+    for (i = 0; i < n; i++) {
+      var t = (m2[i] - 0.5) / 0.4; t = t < 0 ? 0 : t > 1 ? 1 : t; t = t * t * (3 - 2 * t);
+      var near = bin[i] / 0.12; near = near > 1 ? 1 : near;
+      var v = k * t * near;
+      if (v > m1[i]) m1[i] = v;
+    }
+  }
+
   /* ---------------- public cutout ---------------- */
   async function cutout(source, opts) {
     opts = opts || {};
@@ -357,6 +378,11 @@
       }
     }
     if (eng === 'mediapipe') r = runMediaPipe(out);
+    var body = opts.body != null ? opts.body : 0.8;
+    if (eng === 'matting' && r && body > 0 && opts.engine !== 'matting') {
+      try { await ensureMP(); mergeBody(r.m, r.w, r.h, runMediaPipe(out), body); }
+      catch (e) { console.warn('[Segmenter] body prior unavailable:', e && e.message); }
+    }
 
     var isMat = eng === 'matting';
     var o = {
