@@ -23,6 +23,10 @@
     img: $("result-img"), qr: $("qr"), qrStatus: $("qr-status"), qrHint: $("qr-hint"),
     retry: $("retry"), again: $("again"),
     idleWarn: $("idle-warning"), idleSec: $("idle-sec"),
+    cdNum: $("cd-num"), cdSub: $("cd-sub"),
+    resetNote: $("reset-note"), resetRing: $("reset-ring"), againSec: $("again-sec"),
+    drawer: $("admin-drawer"), scrim: $("admin-scrim"), adminClose: $("admin-close"),
+    adminHold: $("admin-hold"), adminOpen: $("admin-open"),
     tokenDialog: $("token-dialog"), tokenForm: $("token-form"), tokenInput: $("token-input"),
   };
 
@@ -47,6 +51,7 @@
   let resultUrl = null;     // object URL for result <img>
   let lastBlob = null;
   let uploading = false;
+  const setState = (s) => { state = s; document.body.dataset.state = s; };
 
   // work canvases (reused → no per-frame allocation)
   const work = document.createElement("canvas");
@@ -55,13 +60,13 @@
 
   // ---------- backgrounds ----------
   const BACKGROUNDS = [
-    { id: "raw", label: "No keying", type: "raw" },
-    { id: "transparent", label: "Transparent (PNG)", type: "transparent" },
-    { id: "gradient-sunset", label: "Sunset", type: "gradient", stops: ["#ff7e5f", "#feb47b", "#7f53ac"] },
-    { id: "gradient-ocean", label: "Ocean", type: "gradient", stops: ["#00c6ff", "#0072ff", "#0b0b3b"] },
-    { id: "gradient-neon", label: "Neon", type: "gradient", stops: ["#f72585", "#7209b7", "#3a0ca3", "#4cc9f0"] },
-    { id: "solid-dark", label: "Studio dark", type: "solid", color: "#15151f" },
-    { id: "solid-white", label: "White", type: "solid", color: "#ffffff" },
+    { id: "raw", short: "Plain", label: "No keying", type: "raw" },
+    { id: "transparent", short: "Clear", label: "Transparent (PNG)", type: "transparent" },
+    { id: "gradient-sunset", short: "Sunset", label: "Sunset", type: "gradient", stops: ["#ff7e5f", "#feb47b", "#7f53ac"] },
+    { id: "gradient-ocean", short: "Ocean", label: "Ocean", type: "gradient", stops: ["#00c6ff", "#0072ff", "#0b0b3b"] },
+    { id: "gradient-neon", short: "Neon", label: "Neon", type: "gradient", stops: ["#f72585", "#7209b7", "#3a0ca3", "#4cc9f0"] },
+    { id: "solid-dark", short: "Studio", label: "Studio dark", type: "solid", color: "#15151f" },
+    { id: "solid-white", short: "White", label: "White", type: "solid", color: "#ffffff" },
   ];
 
   function drawChecker(ctx, w, h) {
@@ -96,25 +101,53 @@
     return BACKGROUNDS.find((b) => b.id === bgId) || BACKGROUNDS[2];
   }
 
+  function makeThumb(id, label, short) {
+    const btn = document.createElement("button");
+    btn.type = "button"; btn.setAttribute("role", "radio"); btn.title = label;
+    btn.setAttribute("aria-label", label); btn.dataset.id = id;
+    const c = document.createElement("canvas"); c.width = 64; c.height = 64;
+    const chk = document.createElement("span"); chk.className = "chk"; chk.setAttribute("aria-hidden", "true"); chk.textContent = "✓";
+    const lbl = document.createElement("span"); lbl.className = "lbl"; lbl.setAttribute("aria-hidden", "true"); lbl.textContent = short;
+    btn.append(c, chk, lbl);
+    btn.addEventListener("click", () => selectBg(id));
+    return btn;
+  }
+
   function buildGallery() {
     el.gallery.textContent = "";
     for (const bg of BACKGROUNDS) {
-      const btn = document.createElement("button");
-      btn.type = "button"; btn.setAttribute("role", "radio"); btn.title = bg.label;
-      btn.setAttribute("aria-label", bg.label); btn.dataset.id = bg.id;
-      const c = document.createElement("canvas"); c.width = 64; c.height = 64;
+      const btn = makeThumb(bg.id, bg.label, bg.short || bg.label);
+      const c = btn.firstChild;
       drawBackground(c.getContext("2d"), 64, 64, bg, false);
       if (bg.type === "raw") { const x = c.getContext("2d"); x.fillStyle = "#fff"; x.font = "28px sans-serif"; x.textAlign = "center"; x.fillText("🎥", 32, 42); }
-      btn.append(c);
-      btn.addEventListener("click", () => selectBg(bg.id));
       el.gallery.append(btn);
     }
     syncGallery();
   }
+  // roving tabindex: only the checked radio is in the tab order
   function syncGallery() {
-    for (const b of el.gallery.children) b.setAttribute("aria-checked", String(b.dataset.id === bgId));
+    const items = [...el.gallery.children];
+    const any = items.some((b) => b.dataset.id === bgId);
+    items.forEach((b, i) => {
+      const on = b.dataset.id === bgId;
+      b.setAttribute("aria-checked", String(on));
+      b.tabIndex = on || (!any && i === 0) ? 0 : -1;
+    });
   }
   function selectBg(id) { bgId = id; prefs.bg = id; savePrefs(); syncGallery(); }
+
+  el.gallery.addEventListener("keydown", (e) => {
+    const keys = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
+    const items = [...el.gallery.children];
+    let i = items.indexOf(document.activeElement);
+    if (i < 0) return;
+    if (e.key === "Home") i = 0; else if (e.key === "End") i = items.length - 1;
+    else if (keys[e.key]) i = (i + keys[e.key] + items.length) % items.length;
+    else return;
+    e.preventDefault();
+    selectBg(items[i].dataset.id); items[i].focus();
+    items[i].scrollIntoView({ block: "nearest", inline: "center" });
+  });
 
   el.bgFile.addEventListener("change", async () => {
     const f = el.bgFile.files?.[0]; el.bgFile.value = "";
@@ -124,13 +157,7 @@
       customBg?.img.close();         // free GPU/CPU memory of the previous one
       customBg = { img: bmp };
       let btn = el.gallery.querySelector('[data-id="custom"]');
-      if (!btn) {
-        btn = document.createElement("button"); btn.type = "button"; btn.dataset.id = "custom";
-        btn.setAttribute("role", "radio"); btn.setAttribute("aria-label", "Custom background");
-        btn.append(document.createElement("canvas")); btn.firstChild.width = btn.firstChild.height = 64;
-        btn.addEventListener("click", () => selectBg("custom"));
-        el.gallery.append(btn);
-      }
+      if (!btn) { btn = makeThumb("custom", "Custom background", "Mine"); el.gallery.append(btn); }
       btn.firstChild.getContext("2d").drawImage(bmp, 0, 0, 64, 64);
       selectBg("custom");
     } catch { /* unreadable image → ignore */ }
@@ -300,18 +327,26 @@
   }
 
   // ---------- capture ----------
+  const COUNT_SUBS = ["Big grin…", "Chin up…", "Get cozy…"];   // indexed by n-1
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   async function takePicture() {
     if (state !== "live" || !video || !video.videoWidth) return;
-    state = "countdown"; el.shutter.disabled = true;
-    for (let n = COUNTDOWN_SEC; n > 0; n--) { el.countdown.hidden = false; el.countdown.textContent = String(n); await sleep(1000); }
-    el.countdown.hidden = true;
-    el.flash.hidden = false; setTimeout(() => (el.flash.hidden = true), 400);
-    state = "processing";
+    setState("countdown"); el.shutter.disabled = true;
+    for (let n = COUNTDOWN_SEC; n > 0; n--) {
+      el.countdown.hidden = false;
+      el.cdNum.textContent = String(n); el.cdSub.textContent = COUNT_SUBS[n - 1] || "";
+      el.cdNum.classList.remove("tick"); void el.cdNum.offsetWidth; el.cdNum.classList.add("tick");   // retrigger pop
+      await sleep(1000);
+    }
+    el.flash.textContent = "Smile!"; el.flash.hidden = false;
+    setTimeout(() => { el.flash.hidden = true; el.flash.textContent = ""; }, 400);
+    el.cdNum.textContent = ""; el.cdNum.classList.remove("tick"); el.cdSub.textContent = "Developing…";
+    setState("processing");
 
     const blob = await renderToBlob(1);
-    if (!blob) { state = "live"; el.shutter.disabled = false; return showCamError("Could not create the photo. Try again."); }
+    el.countdown.hidden = true;
+    if (!blob) { setState("live"); el.shutter.disabled = false; return showCamError("Could not create the photo. Try again."); }
     lastBlob = blob;
     showResult(blob);
     upload(blob);
@@ -331,16 +366,25 @@
   }
 
   function showResult(blob) {
-    state = "result";
+    setState("result");
+    stopReset(); el.qr.classList.remove("ok", "fail");
     if (resultUrl) URL.revokeObjectURL(resultUrl);
     resultUrl = URL.createObjectURL(blob);
     el.img.src = resultUrl;
-    el.qr.textContent = ""; el.qr.append(el.qrStatus); el.qrStatus.textContent = "Uploading…";
+    el.qr.textContent = ""; el.qr.append(el.qrStatus); setStatus("Waddling your photo to the cloud…", true);
     el.qrHint.textContent = ""; el.retry.hidden = true;
     el.live.hidden = true; el.result.hidden = false;
   }
 
   // ---------- upload ----------
+  function setStatus(text, dots) {
+    el.qrStatus.textContent = text;
+    if (dots) {
+      const d = document.createElement("span"); d.className = "dots"; d.setAttribute("aria-hidden", "true");
+      d.append(document.createElement("i"), document.createElement("i"), document.createElement("i"));
+      el.qrStatus.append(d);
+    }
+  }
   function getToken() { return store.get(TOKEN_KEY); }
 
   function askToken() {
@@ -356,7 +400,8 @@
 
   async function upload(blob) {
     if (uploading) return;
-    uploading = true; el.retry.hidden = true; el.qrStatus.textContent = "Uploading…";
+    uploading = true; el.retry.hidden = true; stopReset(); el.qr.classList.remove("ok", "fail");
+    setStatus("Waddling your photo to the cloud…", true); el.qrHint.textContent = "";
     try {
       let token = getToken() || (await askToken());
       for (let attempt = 0; attempt < 4; attempt++) {
@@ -380,8 +425,9 @@
       }
       throw new Error("network");
     } catch (e) {
-      el.qrStatus.textContent = "Upload failed";
-      el.qrHint.textContent = e.message === "unauthorized" ? "Kiosk key missing or wrong." : "Check the connection, then retry. Your photo is still here.";
+      setStatus("Quack! Upload hiccup", false);
+      el.qr.classList.remove("fail"); void el.qr.offsetWidth; el.qr.classList.add("fail");   // retrigger shake
+      el.qrHint.textContent = e.message === "unauthorized" ? "The duck needs the kiosk key. Ask a host." : "Your photo is safe right here. Check the Wi-Fi and give it another waddle.";
       el.retry.hidden = false;
     } finally { uploading = false; }
   }
@@ -395,8 +441,32 @@
     el.qr.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });   // SVG string from vendored lib, data is our own URL
     const svg = el.qr.querySelector("svg");
     if (svg) { svg.setAttribute("role", "img"); svg.setAttribute("aria-label", "QR code to download your photo"); }
-    el.qrHint.textContent = "Point your phone camera at the code.";
+    const hop = document.createElement("span"); hop.className = "hop"; hop.setAttribute("aria-hidden", "true"); hop.textContent = "🦆";
+    el.qr.append(hop); el.qr.classList.add("ok");
+    el.qrHint.textContent = "Fresh out of the pond. Point your phone camera at the code.";
+    startReset();
   }
+
+  // ---------- auto-reset (result screen) ----------
+  const RESET_MS = 45 * 1000;
+  let resetTimer = 0, resetRemain = RESET_MS, resetLast = 0;
+  const RING_LEN = 2 * Math.PI * 15;
+  function paintReset() {
+    el.againSec.textContent = String(Math.max(0, Math.ceil(resetRemain / 1000)));
+    const bar = el.resetRing.querySelector(".bar");
+    if (bar) bar.style.strokeDashoffset = String(RING_LEN * (1 - resetRemain / RESET_MS));
+  }
+  function startReset() {
+    stopReset(); resetRemain = RESET_MS; resetLast = Date.now(); paintReset(); el.resetNote.hidden = false;
+    resetTimer = setInterval(() => {
+      const now = Date.now(), dt = now - resetLast; resetLast = now;
+      if (uploading || state !== "result") return;   // paused while uploading / failed
+      resetRemain -= dt; paintReset();
+      if (resetRemain <= 0) { stopReset(); backToLive(); }
+    }, 250);
+  }
+  function stopReset() { clearInterval(resetTimer); resetTimer = 0; el.resetNote.hidden = true; }
+  el.result.addEventListener("pointerdown", () => { if (resetTimer) { resetRemain = RESET_MS; paintReset(); } }, { passive: true });
 
   el.retry.addEventListener("click", () => lastBlob && upload(lastBlob));
 
@@ -425,9 +495,51 @@
   navigator.mediaDevices?.addEventListener?.("devicechange", () => { if (state === "live") listCameras(el.camera.value).catch(() => {}); });
 
   document.addEventListener("keydown", (e) => {
-    if (e.code === "Space" && state === "live" && !/^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(document.activeElement?.tagName || "")) {
+    if (e.code === "Space" && state === "live" && !drawerOpen && !/^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(document.activeElement?.tagName || "")) {
       e.preventDefault(); takePicture();   // also works with wireless clickers
     }
+  });
+
+  // ---------- operator drawer ----------
+  let drawerOpen = false;
+  let returnFocus = null;
+  function openDrawer() {
+    if (drawerOpen || state !== "live") return;
+    drawerOpen = true; returnFocus = document.activeElement;
+    el.drawer.inert = false; el.drawer.classList.add("open"); el.scrim.classList.add("open");
+    el.live.inert = true;
+    bump(); el.adminClose.focus();
+  }
+  function closeDrawer() {
+    if (!drawerOpen) return;
+    drawerOpen = false;
+    el.drawer.classList.remove("open"); el.scrim.classList.remove("open");
+    el.drawer.inert = true; el.live.inert = false;
+    bump();
+    const t = returnFocus && document.contains(returnFocus) && !returnFocus.disabled ? returnFocus : el.shutter;
+    (t.disabled ? document.body : t).focus?.();
+  }
+  el.adminClose.addEventListener("click", closeDrawer);
+  el.scrim.addEventListener("click", closeDrawer);
+  el.adminOpen.addEventListener("click", openDrawer);
+  if (new URLSearchParams(location.search).get("admin") === "1") el.adminOpen.hidden = false;
+
+  // hidden hotspot: long-press 1.5s or 5 quick taps
+  (() => {
+    let t = 0, taps = 0, tapTimer = 0;
+    const cancel = () => { clearTimeout(t); t = 0; };
+    el.adminHold.addEventListener("pointerdown", () => {
+      cancel(); t = setTimeout(() => { t = 0; taps = 0; openDrawer(); }, 1500);
+      taps++; clearTimeout(tapTimer); tapTimer = setTimeout(() => (taps = 0), 3000);
+      if (taps >= 5) { taps = 0; cancel(); openDrawer(); }
+    });
+    ["pointerup", "pointerleave", "pointercancel"].forEach((ev) => el.adminHold.addEventListener(ev, cancel));
+    el.adminHold.addEventListener("contextmenu", (e) => e.preventDefault());
+  })();
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && drawerOpen) { e.preventDefault(); closeDrawer(); return; }
+    if (e.shiftKey && e.key.toLowerCase() === "s" && !drawerOpen && !/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName || "")) { e.preventDefault(); openDrawer(); }
   });
 
   // ---------- 3-minute inactivity reset ----------
@@ -438,7 +550,7 @@
 
   function idleTick() {
     const idle = Date.now() - lastActivity;
-    const busy = state === "countdown" || state === "processing" || uploading || el.tokenDialog.open;
+    const busy = state === "countdown" || state === "processing" || uploading || el.tokenDialog.open || drawerOpen;
     if (busy) { lastActivity = Date.now(); }
     else if (idle >= IDLE_MS) { location.reload(); return; }
     else if (idle >= IDLE_MS - IDLE_WARN_MS) { el.idleWarn.hidden = false; el.idleSec.textContent = String(Math.ceil((IDLE_MS - idle) / 1000)); }
