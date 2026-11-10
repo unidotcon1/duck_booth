@@ -49,5 +49,14 @@ The app asks the server (`GET /api/config`) whether a key is required, so no cha
 **Warning:** with the key OFF on a public deployment, anyone who knows the URL can upload to your R2 bucket (the 5 MB cap, file-type checks and per-IP rate limit still apply). Prefer ON for real events, or put the site behind Cloudflare Access.
 
 ## E. Background removal (no green screen needed)
-After a photo is taken, the review screen lets guests pick a new background. The person is cut out **in the browser** with an AI model (MediaPipe selfie segmenter, Apache-2.0), self-hosted in `public/vendor/mediapipe/` — nothing is sent to a third party. The first photo loads about 10 MB of model files (cached afterwards). A real green screen is still supported: operator drawer → *Cut-out method* → *Green screen*.
+After a photo is taken, the review screen lets guests pick a new background. The person is cut out **in the browser** with the MODNet matting model (Apache-2.0, run through onnxruntime-web) plus edge refinement; if the model file is missing it falls back to MediaPipe. Everything is self-hosted in `public/vendor/` — nothing is sent to a third party. The first photo downloads about 36 MB of model files (browser-cached afterwards), and the app starts loading them as soon as the camera starts. A real green screen is still supported: operator drawer → *Cut-out method* → *Green screen*.
 To re-download the model files: `bash scripts/fetch-model.sh`.
+
+## F. Your own background images
+Drop `.jpg/.png/.webp` files in `public/backgrounds/` (see the README.txt there). They show up as choices on the review screen. Names, Chinese names and hiding the built-in gradients are set with `names.json` / `config.json` in that folder.
+
+## G. Operator settings (drawer: `?admin=1` gear, Shift+S, or hold the top-right corner 1.5 s)
+- **QR wait time:** 3 minutes (default) or No time limit.
+- **Text size:** 1× – 3×.
+- **Cut-out method:** Auto (AI) or Green screen.
+- **Mirror**, language is the EN | 中文 button on the main screen.
