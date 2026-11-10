@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="theme-color" content="#c9ccd0">
+  <title>Photo Booth</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/stickers.css">
+</head>
+<body data-state="live">
+  <!-- LIVE SCREEN (guest-facing: camera, backgrounds, shutter) -->
+  <main id="screen-live" class="screen kiosk">
+    <section class="stage">
+      <div class="frame">
+        <canvas id="preview" data-i18n-aria="aria.preview" aria-label="Live camera preview"></canvas>
+
+        <div class="brand">
+          <img class="logo" src="/logo-crest.png" width="99" height="94" alt="Providence Presbyterian Church">
+          <h1 class="sr-only" data-i18n="brand">Photo Booth</h1>
+        </div>
+
+        <div id="mode-toggle" class="mode-toggle" role="group" data-i18n-aria="mode.aria" aria-label="Photo mode">
+          <button type="button" data-mode="single" aria-pressed="true" data-i18n="mode.single">Single</button>
+          <button type="button" data-mode="strip" aria-pressed="false" data-i18n="mode.strip">Photo Strip</button>
+        </div>
+        <div id="shot-thumbs" class="shot-thumbs" hidden></div>
+
+        <div id="countdown" class="countdown" hidden aria-live="assertive">
+          <span id="shot-ind" class="shot-ind" hidden></span>
+          <span id="cd-num" class="cd-num"></span>
+          <span id="cd-sub" class="cd-sub"></span>
+        </div>
+        <div id="flash" class="flash" hidden></div>
+        <div id="cap-bar" class="cap-bar" hidden>
+          <span data-i18n="cap.esc">Press Esc to cancel</span>
+          <button id="cap-cancel" type="button" data-i18n="cap.cancel">Cancel</button>
+        </div>
+        <div id="camera-error" class="camera-error" hidden role="alert"></div>
+      </div>
+    </section>
+
+    <div class="filter-col">
+      <div id="filter-gallery" class="gallery filter-gallery" role="radiogroup" data-i18n-aria="filter.aria" aria-label="Filter"></div>
+      <p id="filter-name" class="gallery-name" aria-live="polite"></p>
+    </div>
+
+    <div class="shutter-bar">
+      <button id="shutter" class="shutter" type="button" data-i18n="shutter">Take a picture</button>
+      <p id="hint" class="hint kbd-hint" data-i18n="kbd">or press Space</p>
+    </div>
+  </main>
+
+  <!-- REVIEW SCREEN (change background after the photo; nothing is uploaded yet) -->
+  <main id="screen-review" class="screen review" hidden>
+    <section class="review-photo">
+      <div class="print">
+        <div class="canvas-wrap">
+          <canvas id="review-canvas" data-i18n-aria="aria.reviewPhoto" aria-label="Your photo"></canvas>
+          <div id="sticker-layer" class="sticker-layer"></div>
+          <div id="cut-progress" class="cut-progress" hidden role="status"><span class="spin" aria-hidden="true"></span><span id="cut-progress-text" data-i18n="review.working">Removing background…</span></div>
+        </div>
+      </div>
+    </section>
+    <section class="review-side">
+      <p class="micro" data-i18n="review.label">Review</p>
+      <h2 data-i18n="review.title">Choose a background</h2>
+      <div class="review-scroll">
+      <div id="review-gallery" class="gallery review-gallery" role="radiogroup" data-i18n-aria="aria.bg" aria-label="Background"></div>
+      <p id="review-bg-name" class="gallery-name" aria-live="polite"></p>
+      <p class="micro filter-readout"><span data-i18n="review.filterLbl">Filter</span>: <span id="review-filter-name" data-i18n="f.none">Original</span></p>
+      <div id="strip-tools" class="strip-tools" hidden>
+        <div id="layout-chips" class="chips" role="group" data-i18n-aria="strip.layout">
+          <button type="button" data-layout="vertical" aria-pressed="true" data-i18n="drawer.layoutV">Vertical strip</button>
+          <button type="button" data-layout="grid" aria-pressed="false" data-i18n="strip.grid">2×2 grid</button>
+        </div>
+        <div class="chips">
+          <button id="chip-date" type="button" aria-pressed="false" data-i18n="strip.date">Add date</button>
+          <button id="chip-time" type="button" aria-pressed="false" data-i18n="strip.time">Add time</button>
+        </div>
+        <p class="note" data-i18n="strip.paper">Frame colour</p>
+        <div id="paper-chips" class="chips swatches" role="group" data-i18n-aria="strip.paper"><button type="button" class="sw" data-paper="white" data-i18n-aria="paper.white" aria-pressed="false"></button><button type="button" class="sw" data-paper="black" data-i18n-aria="paper.black" aria-pressed="false"></button><button type="button" class="sw" data-paper="cream" data-i18n-aria="paper.cream" aria-pressed="false"></button><button type="button" class="sw" data-paper="pink" data-i18n-aria="paper.pink" aria-pressed="false"></button><button type="button" class="sw" data-paper="sky" data-i18n-aria="paper.sky" aria-pressed="false"></button><button type="button" class="sw" data-paper="sage" data-i18n-aria="paper.sage" aria-pressed="false"></button><button type="button" class="sw" data-paper="lavender" data-i18n-aria="paper.lavender" aria-pressed="false"></button></div>
+        <p class="note" data-i18n="strip.reorder">Drag photos to reorder</p>
+        <div id="reorder-row" class="reorder-row"></div>
+      </div>
+      <button id="cut-toggle" class="toggle" type="button" aria-pressed="false" data-i18n="review.cut">Remove background</button>
+      <div id="cut-error" class="cut-error" role="alert" hidden>
+        <span data-i18n="review.cutErr">Couldn't remove the background. You can keep the original photo.</span>
+        <button id="cut-keep" type="button" class="secondary-sm" data-i18n="review.keep">Keep original</button>
+      </div>
+      <label id="review-frame-wrap" class="switch" hidden><input id="review-frame" type="checkbox"> <span data-i18n="review.frame">Event frame</span></label>
+      <div id="sticker-box" class="sticker-box">
+        <p class="micro" data-i18n="st.title">Stickers</p>
+        <p class="note" data-i18n="st.hint">Drag stickers onto your photo</p>
+        <div id="sticker-tray" class="sticker-tray"></div>
+        <p class="note" data-i18n="st.hint2">Tap a sticker to adjust · ✕ to delete</p>
+      </div>
+      <p id="review-err" class="err" role="alert" hidden data-i18n="err.create">Could not create the photo. Please try again.</p>
+            </div>
+      <div class="actions sticky-actions">
+        <button id="confirm" type="button" class="primary" data-i18n="review.confirm">Looks good — get QR</button>
+        <button id="retake" type="button" class="secondary" data-i18n="review.retake">Retake</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- RESULT SCREEN -->
+  <main id="screen-result" class="screen result" hidden>
+    <section class="result-photo">
+      <div class="plate"><img src="/logo.png" width="453" height="114" alt="Providence Presbyterian Church 长老会恩泽堂"></div>
+      <div class="slot" aria-hidden="true"></div>
+      <div class="emerge"><img id="result-img" data-i18n-alt="aria.reviewPhoto" alt="Your photo"></div>
+    </section>
+    <section class="result-side">
+      <h2 id="result-title" data-i18n="res.head.ok">Your photo is ready</h2>
+      <div id="qr" class="qr" aria-live="polite"><p id="qr-status"><span id="qr-status-text" data-i18n="res.up">Preparing your download…</span><span id="qr-dots" class="dots" aria-hidden="true"><i></i><i></i><i></i></span></p></div>
+      <p id="qr-hint" class="hint"></p>
+      <p id="ph-done" class="note ph-done" role="status" hidden></p>
+      <p id="qr-warn" class="qr-warn" role="alert" hidden data-i18n="res.localWarn">This QR only works on this computer. Set a QR link address in settings.</p>
+      <div class="actions">
+        <button id="again" type="button" class="primary"><span data-i18n="res.again">Next guest</span> <span aria-hidden="true">→</span></button>
+        <button id="retry" type="button" class="secondary" hidden data-i18n="res.retry">Try again</button>
+        <button id="print" type="button" class="secondary print-btn" data-i18n="res.print">Print</button>
+        <button id="send-phone" type="button" class="secondary" hidden data-i18n="ph.btn">Send to phone</button>
+      </div>
+      <p id="reset-note" class="reset-note" hidden>
+        <svg id="reset-ring" class="ring" viewBox="0 0 36 36" aria-hidden="true" focusable="false">
+          <circle class="track" cx="18" cy="18" r="15"/>
+          <circle class="bar" cx="18" cy="18" r="15"/>
+        </svg>
+        <span id="reset-text" data-i18n="res.reset"></span>
+      </p>
+    </section>
+  </main>
+
+  <div id="idle-warning" class="toast" hidden role="status"><span id="idle-text" data-i18n="idle"></span></div>
+
+  <!-- LANGUAGE -->
+  <div id="lang-toggle" class="lang" role="group" data-i18n-aria="aria.lang" aria-label="Language">
+    <button type="button" data-lang="en" aria-pressed="true">EN</button>
+    <button type="button" data-lang="zh-CN" aria-pressed="false" lang="zh-CN">中文</button>
+  </div>
+
+  <!-- OPERATOR ACCESS (invisible hotspot; gear only with ?admin=1) -->
+  <div id="admin-hold" class="admin-hold" aria-hidden="true"></div>
+  <button id="admin-open" class="admin-open" type="button" data-i18n-aria="drawer.open" aria-label="Open operator settings" aria-controls="admin-drawer">
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path fill="currentColor" d="M19.4 13a7.9 7.9 0 0 0 0-2l2.1-1.6a.5.5 0 0 0 .1-.6l-2-3.5a.5.5 0 0 0-.6-.2l-2.5 1a7.6 7.6 0 0 0-1.7-1l-.4-2.6a.5.5 0 0 0-.5-.4h-4a.5.5 0 0 0-.5.4L9 5.5a7.6 7.6 0 0 0-1.7 1l-2.5-1a.5.5 0 0 0-.6.2l-2 3.5a.5.5 0 0 0 .1.6L4.6 11a7.9 7.9 0 0 0 0 2l-2.1 1.6a.5.5 0 0 0-.1.6l2 3.5c.1.2.4.3.6.2l2.5-1c.5.4 1.1.7 1.7 1l.4 2.6c0 .2.3.4.5.4h4c.2 0 .5-.2.5-.4l.4-2.6c.6-.3 1.2-.6 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5a.5.5 0 0 0-.1-.6zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z"/></svg>
+  </button>
+
+  <div id="admin-scrim" class="scrim"></div>
+  <aside id="admin-drawer" class="drawer" role="dialog" aria-modal="true" aria-labelledby="admin-title" inert>
+    <header class="drawer-head">
+      <h2 id="admin-title" data-i18n="drawer.title">Operator settings</h2>
+      <button id="admin-peek" class="peek-btn" type="button" aria-pressed="false" data-i18n="drawer.peek">Peek</button>
+      <button id="admin-close" class="close" type="button" data-i18n-aria="drawer.close" aria-label="Close settings">&times;</button>
+    </header>
+
+    <div class="drawer-body">
+      <div class="set-search">
+        <div class="set-search-row">
+          <svg class="set-search-ico" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zm9 16-4-4"/></svg>
+          <input id="set-search" type="search" autocomplete="off" spellcheck="false" placeholder="Search settings…" data-i18n-ph="drawer.search" data-i18n-aria="drawer.search" aria-label="Search settings">
+          <button id="set-clear" class="set-clear" type="button" hidden data-i18n-aria="drawer.clearSearch" aria-label="Clear search">&times;</button>
+        </div>
+        <div class="set-tools">
+          <button id="set-expand" class="link" type="button" data-i18n="drawer.expandAll">Expand all</button>
+          <button id="set-collapse" class="link" type="button" data-i18n="drawer.collapseAll">Collapse all</button>
+        </div>
+      </div>
+      <p id="set-none" class="note set-none" role="status" hidden></p>
+
+      <details class="set-sec" data-sec="general" open>
+        <summary><span data-i18n="drawer.secGeneral">General</span></summary>
+        <div class="set-body">
+          <label class="field set-item" data-kw="timeout reset wait auto 3 minutes no limit scan 等待 超时 重置 限时">
+            <span data-i18n="drawer.qrWait">QR wait time</span>
+            <select id="qr-wait">
+              <option value="3min" data-i18n="drawer.qr3">3 minutes</option>
+              <option value="none" data-i18n="drawer.qrNone">No time limit</option>
+            </select>
+          </label>
+          <div class="field set-item" data-kw="font size zoom bigger larger text scale accessibility 字体 字号 放大 文字大小">
+            <label><span class="lab"><span data-i18n="drawer.scale">Text size</span> <output id="ui-scale-val">1.0×</output></span> <input id="ui-scale" type="range" min="1" max="3" step="0.1" value="1"></label>
+            <button id="ui-scale-reset" class="secondary-sm" type="button" data-i18n="drawer.scaleReset">Reset</button>
+          </div>
+          <label class="field set-item" data-kw="gear cog hide button 齿轮 隐藏 设置按钮">
+            <span data-i18n="drawer.showSettings">Show settings button</span>
+            <select id="show-settings"><option value="on" data-i18n="drawer.on">On</option><option value="off" data-i18n="drawer.off">Off</option></select>
+          </label>
+          <label class="field set-item" data-kw="whatsapp phone number mobile sms send share handphone 手机 号码 发送 分享 短信">
+            <span data-i18n="drawer.showPhone">Show send-to-phone button</span>
+            <select id="show-phone"><option value="on" data-i18n="drawer.on">On</option><option value="off" data-i18n="drawer.off">Off</option></select>
+          </label>
+          <label class="field set-item" data-kw="whatsapp phone country code singapore malaysia 手机 国家 区号 新加坡">
+            <span data-i18n="drawer.phoneCc">Default country code</span>
+            <select id="ph-default-cc"></select>
+          </label>
+          <label class="field set-item" data-kw="printer printing 打印 打印机">
+            <span data-i18n="drawer.showPrint">Show print button</span>
+            <select id="show-print"><option value="on" data-i18n="drawer.on">On</option><option value="off" data-i18n="drawer.off">Off</option></select>
+          </label>
+        </div>
+      </details>
+
+      <details class="set-sec" data-sec="modes">
+        <summary><span data-i18n="drawer.secModes">Photo modes</span></summary>
+        <div class="set-body">
+          <label class="field set-item" data-kw="single strip photo booth lock mode 单张 照片条 模式 锁定">
+            <span data-i18n="drawer.boothMode">Booth mode</span>
+            <select id="booth-mode">
+              <option value="guests" data-i18n="drawer.bmGuests">Guests choose</option>
+              <option value="single" data-i18n="drawer.bmSingle">Single only</option>
+              <option value="strip" data-i18n="drawer.bmStrip">Photo Strip only</option>
+            </select>
+          </label>
+          <label class="field set-item" data-kw="number of photos shots count 3 4 6 张数 拍几张">
+            <span data-i18n="drawer.shots">Shots per strip</span>
+            <select id="shots-per-strip"><option value="3">3</option><option value="4">4</option><option value="6">6</option></select>
+          </label>
+          <label class="field set-item" data-kw="vertical grid 2x2 版式 竖条 方格 布局">
+            <span data-i18n="drawer.layout">Strip layout</span>
+            <select id="strip-layout">
+              <option value="vertical" data-i18n="drawer.layoutV">Vertical strip</option>
+              <option value="grid" data-i18n="drawer.layoutG">2×2 grid (4 shots only)</option>
+            </select>
+          </label>
+        </div>
+      </details>
+
+      <details class="set-sec" data-sec="camera">
+        <summary><span data-i18n="drawer.secCamera">Camera</span></summary>
+        <div class="set-body">
+          <label class="field set-item" data-kw="webcam select device choose nikon 摄像头 选择 设备">
+            <span data-i18n="drawer.camera">Camera</span>
+            <select id="camera"></select>
+          </label>
+          <label class="field set-item" data-kw="testing production nikon dslr virtual webcam 测试 正式 单反">
+            <span data-i18n="drawer.mode">Camera mode</span>
+            <select id="mode">
+              <option value="test" data-i18n="drawer.modeTest">Testing — laptop webcam</option>
+              <option value="prod" data-i18n="drawer.modeProd">Production — Nikon DSLR (virtual webcam)</option>
+            </select>
+          </label>
+          <label class="field set-item" data-kw="zoom crop wide aspect ratio 16:9 4:3 field of view 取景 缩放 比例">
+            <span data-i18n="cam.framing">Camera framing</span>
+            <select id="cam-framing">
+              <option value="widest" data-i18n="cam.widest">Widest (full camera image)</option>
+              <option value="16x9" data-i18n="cam.16x9">16:9 crop</option>
+              <option value="4x3" data-i18n="cam.4x3">4:3</option>
+            </select>
+          </label>
+          <p class="note set-item" data-kw="resolution status zoom 分辨率 状态"><span data-i18n="cam.status">Camera</span>: <span id="cam-status">—</span></p>
+          <p class="note set-item" data-kw="center stage automatic framing studio effects windows macos 自动取景" data-i18n="cam.note">Turn off Center Stage / Automatic framing / Studio Effects in your operating system if the picture still moves or zooms. (macOS: Control Center → Video Effects. Windows: Settings → Bluetooth &amp; devices → Cameras → Windows Studio Effects → Automatic framing.)</p>
+          <label class="inline field set-item" data-kw="flip reverse selfie 镜像 翻转"><input id="mirror" type="checkbox"> <span data-i18n="drawer.mirror">Mirror image</span></label>
+          <p class="note set-item" data-kw="mirror nikon webcam 镜像" data-i18n="drawer.mirrorNote">Mirror (on for webcam, off for Nikon)</p>
+        </div>
+      </details>
+
+      <details class="set-sec" data-sec="backgrounds">
+        <summary><span data-i18n="drawer.secBackgrounds">Backgrounds &amp; frame</span></summary>
+        <div class="set-body">
+          <label class="field set-item" data-kw="remove background ai green screen chroma key 抠图 绿幕 去背景">
+            <span data-i18n="drawer.method">Cut-out method</span>
+            <select id="cutout-method">
+              <option value="auto" data-i18n="drawer.methodAuto">Auto (AI, no green screen)</option>
+              <option value="green" data-i18n="drawer.methodGreen">Green screen</option>
+            </select>
+          </label>
+          <details id="tuning" class="field tuning set-item" data-kw="green screen key strength edge softness despill chroma 绿幕 调节 强度 柔化" open>
+            <summary data-i18n="drawer.tuning">Green-screen tuning</summary>
+            <label><span class="lab"><span data-i18n="drawer.strength">Key strength</span> <output id="key-strength-val">50</output></span> <input id="key-strength" type="range" min="0" max="100" value="50"></label>
+            <label><span class="lab"><span data-i18n="drawer.soft">Edge softness</span> <output id="key-soft-val">45</output></span> <input id="key-soft" type="range" min="5" max="80" value="45"></label>
+            <label><span class="lab"><span data-i18n="drawer.despill">Despill</span> <output id="key-despill-val">80</output></span> <input id="key-despill" type="range" min="0" max="100" value="80"></label>
+            <button id="key-reset" class="secondary-sm" type="button" data-i18n="drawer.resetSliders">Reset sliders</button>
+          </details>
+          <div class="field set-item" data-kw="upload picture image own background 上传 自定义 背景 图片">
+            <span class="legend" data-i18n="drawer.customBg">Custom background</span>
+            <label class="file"><span data-i18n="drawer.chooseImg">+ Choose an image</span>
+              <input id="bg-file" type="file" accept="image/jpeg,image/png,image/webp">
+            </label>
+          </div>
+          <fieldset class="field set-item" data-kw="border overlay logo event name text png 相框 活动 名称 边框">
+            <legend data-i18n="drawer.frame">Event frame</legend>
+            <label class="inline"><input id="frame-on" type="checkbox"> <span data-i18n="drawer.showFrame">Show frame</span></label>
+            <input id="frame-text" type="text" maxlength="40" data-i18n-ph="drawer.eventName" placeholder="Event name" autocomplete="off">
+            <label class="file"><span data-i18n="drawer.framePng">+ Frame PNG (transparent)</span>
+              <input id="frame-file" type="file" accept="image/png">
+            </label>
+          </fieldset>
+        </div>
+      </details>
+
+      <details class="set-sec" data-sec="stickers">
+        <summary><span data-i18n="drawer.secStickers">Stickers</span></summary>
+        <div class="set-body">
+          <section class="field stk-mgr-box set-item" aria-labelledby="stk-mgr-title" data-kw="add upload delete remove hide show emoji 添加 删除 隐藏 显示 贴纸">
+            <h3 id="stk-mgr-title" class="micro" data-i18n="drawer.stkMgr">Manage stickers</h3>
+            <div id="stk-manager"></div>
+          </section>
+          <fieldset id="opt-stk-box" class="field set-item" hidden data-kw="meme tung tung sahur 梗图 可选">
+            <legend data-i18n="drawer.optStk">Optional stickers</legend>
+            <div id="opt-stk"></div>
+          </fieldset>
+        </div>
+      </details>
+
+      <details class="set-sec" data-sec="qr">
+        <summary><span data-i18n="drawer.secQr">QR code &amp; upload</span></summary>
+        <div class="set-body">
+          <label class="field set-item" data-kw="phone wifi address ip url link localhost lan 手机 网址 地址 链接 局域网">
+            <span data-i18n="drawer.qrBase">QR link address</span>
+            <input id="qr-base" type="text" inputmode="url" maxlength="100" autocomplete="off" spellcheck="false" placeholder="http://192.168.1.23:8787" data-i18n-ph="drawer.qrBasePh">
+            <small class="note" data-i18n="drawer.qrBaseHelp">Phones cannot open localhost. Use your computer's Wi-Fi address, e.g. http://192.168.1.23:8787, and start the server with --ip 0.0.0.0 (or deploy to Cloudflare). Leave empty to use the page address.</small>
+          </label>
+          <p id="key-status" class="note set-item" data-kw="upload key token password security 上传 密钥 密码" data-i18n="drawer.keyReq">Upload key: required</p>
+          <button id="reset-token" class="link set-item" type="button" data-kw="upload key token password 上传 密钥 重置" data-i18n="drawer.resetKey">Reset upload key</button>
+        </div>
+      </details>
+    </div>
+  </aside>
+
+  <dialog id="phone-dialog" class="phone-dialog" aria-labelledby="ph-title">
+    <form method="dialog" id="phone-form" novalidate>
+      <h2 id="ph-title" data-i18n="ph.title">Send the link to your phone</h2>
+      <div class="ph-row">
+        <label class="ph-cc-wrap"><span class="sr-only" data-i18n="ph.cc">Country code</span>
+          <select id="ph-cc">
+            <option value="65">SG +65</option><option value="60">MY +60</option><option value="62">ID +62</option><option value="86">CN +86</option>
+            <option value="852">HK +852</option><option value="886">TW +886</option><option value="63">PH +63</option><option value="66">TH +66</option>
+            <option value="84">VN +84</option><option value="91">IN +91</option><option value="61">AU +61</option><option value="44">UK +44</option>
+            <option value="1">US/CA +1</option><option value="81">JP +81</option><option value="82">KR +82</option>
+          </select></label>
+        <label class="ph-num-wrap"><span class="sr-only" data-i18n="ph.num">Mobile number</span>
+          <input id="ph-num" type="tel" inputmode="numeric" autocomplete="off" maxlength="18" placeholder="9123 4567" data-i18n-aria="ph.num" aria-label="Mobile number"></label>
+      </div>
+      <div id="ph-pad" class="ph-pad" role="group" data-i18n-aria="ph.pad" aria-label="Number pad"></div>
+      <p id="ph-err" class="token-err" role="alert" hidden></p>
+      <p id="ph-local" class="qr-warn" hidden data-i18n="res.localWarn">This QR only works on this computer. Set a QR link address in settings.</p>
+      <p class="note" data-i18n="ph.consent">Your number is only used to open a WhatsApp message with your photo link. It is not saved or shared.</p>
+      <div class="dlg-actions">
+        <button id="ph-cancel" class="secondary-sm" type="button" data-i18n="ph.cancel">Cancel</button>
+        <button id="ph-send" class="primary" type="submit" data-i18n="ph.send">Open WhatsApp</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="token-dialog">
+    <form method="dialog" id="token-form">
+      <h2 data-i18n="tok.title">Upload key required</h2>
+      <p id="token-err" class="token-err" role="alert" hidden data-i18n="tok.err">That key didn't work. Try again.</p>
+      <p id="token-guest" data-i18n="tok.guest">Please ask a host for help.</p>
+      <p id="token-op" hidden data-i18n="tok.op">Paste the key set with wrangler secret put KIOSK_TOKEN. It is stored only on this device.</p>
+      <p class="note" data-i18n="tok.hint">Operator access: hold the top-right corner for 1.5 seconds, or add ?admin=1 to the address.</p>
+      <input id="token-input" type="password" autocomplete="off" required>
+      <div class="dlg-actions">
+        <button id="token-cancel" class="secondary-sm" type="button" data-i18n="tok.cancel">Cancel</button>
+        <button class="primary" type="submit" data-i18n="tok.save">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/vendor/qrcode.js"></script>
+  <script src="/i18n.js"></script>
+  <script src="/stickers.js"></script>
+  <script src="/segment.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

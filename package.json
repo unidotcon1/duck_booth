@@ -1,0 +1,32 @@
+{
+  "name": "photo-booth",
+  "version": "1.0.0",
+  "description": "Browser photo booth with AI background removal, filters, stickers and QR download",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "backgrounds": "node scripts/build-backgrounds.mjs",
+    "stickers": "node scripts/build-stickers.mjs",
+    "start": "wrangler dev --ip 0.0.0.0",
+    "tunnel": "node scripts/start-tunnel.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/unidotcon1/duck_booth.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/unidotcon1/duck_booth/issues"
+  },
+  "homepage": "https://github.com/unidotcon1/duck_booth#readme",
+  "devDependencies": {
+    "wrangler": "^4.159.0"
+  },
+  "dependencies": {
+    "@mediapipe/tasks-vision": "0.10.21",
+    "onnxruntime-web": "1.20.1",
+    "qrcode-generator": "^1.4.4"
+  }
+}
