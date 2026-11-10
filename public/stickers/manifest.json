@@ -1,24 +1,43 @@
 {
   "includeBuiltins": true,
+  "categories": [
+    {
+      "id": "fun",
+      "name": {
+        "en": "Fun",
+        "zh-CN": "趣味"
+      }
+    },
+    {
+      "id": "faith",
+      "name": {
+        "en": "Faith",
+        "zh-CN": "信仰"
+      }
+    },
+    {
+      "id": "party",
+      "name": {
+        "en": "Party",
+        "zh-CN": "派对"
+      }
+    },
+    {
+      "id": "shapes",
+      "name": {
+        "en": "Shapes",
+        "zh-CN": "形状"
+      }
+    },
+    {
+      "id": "text",
+      "name": {
+        "en": "Text",
+        "zh-CN": "文字"
+      }
+    }
+  ],
   "items": [
-    {
-      "id": "b-balloon",
-      "file": "builtin/balloon.svg",
-      "name": {
-        "en": "Balloon",
-        "zh-CN": "气球"
-      },
-      "builtin": true
-    },
-    {
-      "id": "b-blessed",
-      "file": "builtin/blessed.svg",
-      "name": {
-        "en": "Blessed badge",
-        "zh-CN": "蒙福徽章"
-      },
-      "builtin": true
-    },
     {
       "id": "b-bow-tie",
       "file": "builtin/bow-tie.svg",
@@ -26,25 +45,8 @@
         "en": "Bow tie",
         "zh-CN": "领结"
       },
-      "builtin": true
-    },
-    {
-      "id": "b-confetti",
-      "file": "builtin/confetti.svg",
-      "name": {
-        "en": "Confetti",
-        "zh-CN": "彩纸"
-      },
-      "builtin": true
-    },
-    {
-      "id": "b-cross",
-      "file": "builtin/cross.svg",
-      "name": {
-        "en": "Cross",
-        "zh-CN": "十字架"
-      },
-      "builtin": true
+      "builtin": true,
+      "category": "fun"
     },
     {
       "id": "b-crown",
@@ -53,97 +55,8 @@
         "en": "Crown",
         "zh-CN": "皇冠"
       },
-      "builtin": true
-    },
-    {
-      "id": "b-dove",
-      "file": "builtin/dove.svg",
-      "name": {
-        "en": "Dove",
-        "zh-CN": "鸽子"
-      },
-      "builtin": true
-    },
-    {
-      "id": "b-flower",
-      "file": "builtin/flower.svg",
-      "name": {
-        "en": "Flower",
-        "zh-CN": "花朵"
-      },
-      "builtin": true
-    },
-    {
-      "id": "b-heart",
-      "file": "builtin/heart.svg",
-      "name": {
-        "en": "Heart",
-        "zh-CN": "爱心"
-      },
-      "builtin": true
-    },
-    {
-      "id": "b-laurel",
-      "file": "builtin/laurel.svg",
-      "name": {
-        "en": "Laurel wreath",
-        "zh-CN": "桂冠"
-      },
-      "builtin": true
-    },
-    {
-      "id": "b-olive-branch",
-      "file": "builtin/olive-branch.svg",
-      "name": {
-        "en": "Olive branch",
-        "zh-CN": "橄榄枝"
-      },
-      "builtin": true
-    },
-    {
-      "id": "b-party-hat",
-      "file": "builtin/party-hat.svg",
-      "name": {
-        "en": "Party hat",
-        "zh-CN": "派对帽"
-      },
-      "builtin": true
-    },
-    {
-      "id": "b-praying-hands",
-      "file": "builtin/praying-hands.svg",
-      "name": {
-        "en": "Praying hands",
-        "zh-CN": "祈祷之手"
-      },
-      "builtin": true
-    },
-    {
-      "id": "b-ribbon",
-      "file": "builtin/ribbon.svg",
-      "name": {
-        "en": "Award ribbon",
-        "zh-CN": "奖章"
-      },
-      "builtin": true
-    },
-    {
-      "id": "b-smile-en",
-      "file": "builtin/smile-en.svg",
-      "name": {
-        "en": "Smile! (English)",
-        "zh-CN": "微笑气泡（英文）"
-      },
-      "builtin": true
-    },
-    {
-      "id": "b-smile-zh",
-      "file": "builtin/smile-zh.svg",
-      "name": {
-        "en": "Smile! (Chinese)",
-        "zh-CN": "微笑气泡（中文）"
-      },
-      "builtin": true
+      "builtin": true,
+      "category": "fun"
     },
     {
       "id": "b-sparkles",
@@ -152,16 +65,8 @@
         "en": "Sparkles",
         "zh-CN": "闪耀"
       },
-      "builtin": true
-    },
-    {
-      "id": "b-star",
-      "file": "builtin/star.svg",
-      "name": {
-        "en": "Star",
-        "zh-CN": "星星"
-      },
-      "builtin": true
+      "builtin": true,
+      "category": "fun"
     },
     {
       "id": "b-sunglasses",
@@ -170,7 +75,158 @@
         "en": "Sunglasses",
         "zh-CN": "太阳镜"
       },
-      "builtin": true
+      "builtin": true,
+      "category": "fun"
+    },
+    {
+      "id": "b-cross",
+      "file": "builtin/cross.svg",
+      "name": {
+        "en": "Cross",
+        "zh-CN": "十字架"
+      },
+      "builtin": true,
+      "category": "faith"
+    },
+    {
+      "id": "b-dove",
+      "file": "builtin/dove.svg",
+      "name": {
+        "en": "Dove",
+        "zh-CN": "鸽子"
+      },
+      "builtin": true,
+      "category": "faith"
+    },
+    {
+      "id": "b-laurel",
+      "file": "builtin/laurel.svg",
+      "name": {
+        "en": "Laurel wreath",
+        "zh-CN": "桂冠"
+      },
+      "builtin": true,
+      "category": "faith"
+    },
+    {
+      "id": "b-olive-branch",
+      "file": "builtin/olive-branch.svg",
+      "name": {
+        "en": "Olive branch",
+        "zh-CN": "橄榄枝"
+      },
+      "builtin": true,
+      "category": "faith"
+    },
+    {
+      "id": "b-praying-hands",
+      "file": "builtin/praying-hands.svg",
+      "name": {
+        "en": "Praying hands",
+        "zh-CN": "祈祷之手"
+      },
+      "builtin": true,
+      "category": "faith"
+    },
+    {
+      "id": "b-balloon",
+      "file": "builtin/balloon.svg",
+      "name": {
+        "en": "Balloon",
+        "zh-CN": "气球"
+      },
+      "builtin": true,
+      "category": "party"
+    },
+    {
+      "id": "b-confetti",
+      "file": "builtin/confetti.svg",
+      "name": {
+        "en": "Confetti",
+        "zh-CN": "彩纸"
+      },
+      "builtin": true,
+      "category": "party"
+    },
+    {
+      "id": "b-party-hat",
+      "file": "builtin/party-hat.svg",
+      "name": {
+        "en": "Party hat",
+        "zh-CN": "派对帽"
+      },
+      "builtin": true,
+      "category": "party"
+    },
+    {
+      "id": "b-ribbon",
+      "file": "builtin/ribbon.svg",
+      "name": {
+        "en": "Award ribbon",
+        "zh-CN": "奖章"
+      },
+      "builtin": true,
+      "category": "party"
+    },
+    {
+      "id": "b-flower",
+      "file": "builtin/flower.svg",
+      "name": {
+        "en": "Flower",
+        "zh-CN": "花朵"
+      },
+      "builtin": true,
+      "category": "shapes"
+    },
+    {
+      "id": "b-heart",
+      "file": "builtin/heart.svg",
+      "name": {
+        "en": "Heart",
+        "zh-CN": "爱心"
+      },
+      "builtin": true,
+      "category": "shapes"
+    },
+    {
+      "id": "b-star",
+      "file": "builtin/star.svg",
+      "name": {
+        "en": "Star",
+        "zh-CN": "星星"
+      },
+      "builtin": true,
+      "category": "shapes"
+    },
+    {
+      "id": "b-blessed",
+      "file": "builtin/blessed.svg",
+      "name": {
+        "en": "Blessed badge",
+        "zh-CN": "蒙福徽章"
+      },
+      "builtin": true,
+      "category": "text"
+    },
+    {
+      "id": "b-smile-en",
+      "file": "builtin/smile-en.svg",
+      "name": {
+        "en": "Smile! (English)",
+        "zh-CN": "微笑气泡（英文）"
+      },
+      "builtin": true,
+      "category": "text"
+    },
+    {
+      "id": "b-smile-zh",
+      "file": "builtin/smile-zh.svg",
+      "name": {
+        "en": "Smile! (Chinese)",
+        "zh-CN": "微笑气泡（中文）"
+      },
+      "builtin": true,
+      "category": "text"
     }
   ]
 }

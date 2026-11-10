@@ -317,3 +317,25 @@ body[data-state=countdown] .mode-toggle,body[data-state=processing] .mode-toggle
   *,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
   .flash{opacity:.9}
 }
+
+/* ---------- strip review tools ---------- */
+.strip-tools{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%}
+.chips{display:flex;flex-wrap:wrap;justify-content:center;gap:var(--s2)}
+.chips button{min-height:44px;padding:0 var(--s4);border-radius:999px;border:1.5px solid var(--ink);background:transparent;color:var(--ink);font-weight:600;font-size:calc(var(--ui-scale) * 15px);cursor:pointer}
+.chips button[aria-pressed=true]{background:var(--ink);color:#fff}
+.chips button[hidden]{display:none}
+.reorder-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;touch-action:none}
+.reorder-row canvas{width:64px;height:48px;border:2px solid #fff;border-radius:4px;box-shadow:var(--shadow-1);cursor:grab;touch-action:none}
+.reorder-row canvas.drag{opacity:.5;cursor:grabbing}
+.reorder-row canvas.over{outline:3px solid var(--focus)}
+.print-btn{min-height:56px}
+/* ---------- print: only the finished image ---------- */
+@media print{
+  body{background:#fff!important;overflow:visible}
+  body::before{display:none}
+  body>*:not(#screen-result){display:none!important}
+  #screen-result{display:block!important;position:static;height:auto;padding:0;max-width:none}
+  #screen-result .result-side,#screen-result .plate,#screen-result .slot{display:none!important}
+  .result-photo,.emerge{display:block!important;height:auto;padding:0;margin:0;clip-path:none;max-width:none}
+  #result-img{animation:none!important;transform:none!important;border:0!important;box-shadow:none!important;max-width:100%!important;max-height:100vh!important;width:auto;margin:0 auto;display:block}
+}

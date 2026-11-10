@@ -1,7 +1,10 @@
 // Scans public/stickers/ and writes public/stickers/manifest.json.
-//   user images : public/stickers/*.(png|webp|svg|jpg|jpeg)
-//   shipped set : public/stickers/builtin/*.svg
-// Optional: names.json  { "my.png": { "en": "My sticker", "zh": "我的贴纸" } }
+//   user images : public/stickers/*.(png|webp|svg|jpg|jpeg)   -> category "Mine"
+//                 public/stickers/<folder>/*.(png|...)        -> category = folder name
+//   shipped set : public/stickers/builtin/*.svg               -> built-in categories
+// Optional: names.json  { "my.png": { "en": "My sticker", "zh": "我的贴纸" },
+//                         "party/hat.png": { "en": "Hat" },            (file inside a folder)
+//                         "party/": { "en": "Party time", "zh": "派对" } }  (category label)
 //           config.json { "includeBuiltins": false }
 // Runs automatically before `wrangler dev` / `wrangler deploy` (see wrangler.jsonc "build").
 import { readdirSync, readFileSync, writeFileSync, statSync, existsSync } from "node:fs";
@@ -48,35 +51,70 @@ const pretty = (f) => basename(f, extname(f)).replace(/[-_]+/g, " ").replace(/\b
 const natural = (a, b) => a.localeCompare(b, undefined, { numeric: true });
 const slug = (f) => basename(f, extname(f)).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
-function scan(sub) {
-  const base = sub ? join(dir, sub) : dir;
-  if (!existsSync(base)) return [];
-  return readdirSync(base, { withFileTypes: true })
-    .filter((d) => d.isFile() && !d.name.startsWith(".") && (sub ? extname(d.name).toLowerCase() === ".svg" : EXT.has(extname(d.name).toLowerCase())))
-    .map((d) => d.name).sort(natural)
-    .filter((f) => {
-      const size = statSync(join(base, f)).size;
-      if (size > MAX) { console.warn(`[stickers] skipping ${f}: ${(size / 1048576).toFixed(1)} MB is over the 25 MB limit`); return false; }
-      if (size > WARN) console.warn(`[stickers] ${f} is ${(size / 1048576).toFixed(1)} MB; consider a smaller (<2 MB) PNG/WebP`);
-      return true;
-    });
+const CATS = {
+  fun: ["Fun", "趣味"], faith: ["Faith", "信仰"], party: ["Party", "派对"], shapes: ["Shapes", "形状"], text: ["Text", "文字"], mine: ["Mine", "我的"],
+};
+const BUILTIN_CAT = {
+  sunglasses: "fun", "bow-tie": "fun", crown: "fun", sparkles: "fun",
+  cross: "faith", dove: "faith", "olive-branch": "faith", "praying-hands": "faith", laurel: "faith",
+  "party-hat": "party", balloon: "party", confetti: "party", ribbon: "party",
+  star: "shapes", heart: "shapes", flower: "shapes",
+  "smile-en": "text", "smile-zh": "text", blessed: "text",
+};
+
+function okFile(base, f, svgOnly) {
+  if (f.startsWith(".") || !(svgOnly ? extname(f).toLowerCase() === ".svg" : EXT.has(extname(f).toLowerCase()))) return false;
+  const size = statSync(join(base, f)).size;
+  if (size > MAX) { console.warn(`[stickers] skipping ${f}: ${(size / 1048576).toFixed(1)} MB is over the 25 MB limit`); return false; }
+  if (size > WARN) console.warn(`[stickers] ${f} is ${(size / 1048576).toFixed(1)} MB; consider a smaller (<2 MB) PNG/WebP`);
+  return true;
 }
+const list = (base, svgOnly) => existsSync(base)
+  ? readdirSync(base, { withFileTypes: true }).filter((d) => d.isFile() && okFile(base, d.name, svgOnly)).map((d) => d.name).sort(natural) : [];
 
 const items = [];
 const seen = new Set();
-const add = (f, builtin) => {
-  const file = builtin ? "builtin/" + f : f;
-  let id = (builtin ? "b-" : "u-") + slug(f); for (let i = 2; seen.has(id); i++) id = (builtin ? "b-" : "u-") + slug(f) + "-" + i;
+const catOrder = [];      // [{id, name}]
+const catSeen = new Set();
+const addCat = (id, name) => { if (!catSeen.has(id)) { catSeen.add(id); catOrder.push({ id, name }); } };
+
+const add = (file, cat, builtin) => {
+  const f = basename(file);
+  let id = (builtin ? "b-" : "u-") + (builtin ? slug(f) : file.replace(/\.[^.\/]+$/, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""));
+  for (let i = 2; seen.has(id); i++) id += "-" + i;
   seen.add(id);
   let en, zh;
   if (builtin) { const n = BUILTIN_NAMES[basename(f, ".svg")]; en = n ? n[0] : pretty(f); zh = n ? n[1] : en; }
-  const o = names[file] || names[f] || {};
+  const o = names[file] || {};
   en = o.en || en || pretty(f);
   zh = o.zh || o["zh-CN"] || zh || en;
-  items.push({ id, file, name: { en, "zh-CN": zh }, builtin });
+  items.push({ id, file, name: { en, "zh-CN": zh }, builtin, category: cat });
 };
-if (includeBuiltins) scan("builtin").forEach((f) => add(f, true));
-scan("").forEach((f) => add(f, false));
 
-writeFileSync(join(dir, "manifest.json"), JSON.stringify({ includeBuiltins, items }, null, 2) + "\n");
-console.log(`[stickers] manifest.json: ${items.length} stickers`);
+const pending = []; // [catId, file, builtin]
+if (includeBuiltins) {
+  for (const f of list(join(dir, "builtin"), true)) pending.push([BUILTIN_CAT[basename(f, ".svg")] || "fun", "builtin/" + f, true]);
+}
+// user sub-folders (any folder except builtin) -> categories
+const folders = existsSync(dir) ? readdirSync(dir, { withFileTypes: true }).filter((d) => d.isDirectory() && d.name !== "builtin" && !d.name.startsWith(".")).map((d) => d.name).sort(natural) : [];
+for (const fo of folders) {
+  const files = list(join(dir, fo), false);
+  if (!files.length) continue;
+  const cid = "f-" + slug(fo);
+  const o = names[fo + "/"] || names[fo] || {};
+  addCat(cid, { en: o.en || pretty(fo), "zh-CN": o.zh || o["zh-CN"] || o.en || pretty(fo) });
+  files.forEach((f) => pending.push([cid, fo + "/" + f, false]));
+}
+for (const f of list(dir, false)) pending.push(["mine", f, false]);
+
+// category order: built-in cats (fixed order), user folders, Mine
+const order = ["fun", "faith", "party", "shapes", "text"];
+const used = new Set(pending.map((p) => p[0]));
+const cats = [];
+for (const id of order) if (used.has(id)) cats.push({ id, name: { en: CATS[id][0], "zh-CN": CATS[id][1] } });
+for (const c of catOrder) cats.push(c);
+if (used.has("mine")) { const o = names["mine/"] || {}; cats.push({ id: "mine", name: { en: o.en || CATS.mine[0], "zh-CN": o.zh || o["zh-CN"] || CATS.mine[1] } }); }
+for (const c of cats) for (const p of pending) if (p[0] === c.id) add(p[1], p[0], p[2]);
+
+writeFileSync(join(dir, "manifest.json"), JSON.stringify({ includeBuiltins, categories: cats, items }, null, 2) + "\n");
+console.log(`[stickers] manifest.json: ${items.length} stickers in ${cats.length} categories`);

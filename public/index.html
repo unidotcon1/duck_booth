@@ -61,6 +61,18 @@
       <h2 data-i18n="review.title">Choose a background</h2>
       <div id="review-gallery" class="gallery review-gallery" role="radiogroup" data-i18n-aria="aria.bg" aria-label="Background"></div>
       <p class="micro filter-readout"><span data-i18n="review.filterLbl">Filter</span>: <span id="review-filter-name" data-i18n="f.none">Original</span></p>
+      <div id="strip-tools" class="strip-tools" hidden>
+        <div id="layout-chips" class="chips" role="group" data-i18n-aria="strip.layout">
+          <button type="button" data-layout="vertical" aria-pressed="true" data-i18n="drawer.layoutV">Vertical strip</button>
+          <button type="button" data-layout="grid" aria-pressed="false" data-i18n="strip.grid">2×2 grid</button>
+        </div>
+        <div class="chips">
+          <button id="chip-date" type="button" aria-pressed="false" data-i18n="strip.date">Add date</button>
+          <button id="chip-time" type="button" aria-pressed="false" data-i18n="strip.time">Add time</button>
+        </div>
+        <p class="note" data-i18n="strip.reorder">Drag photos to reorder</p>
+        <div id="reorder-row" class="reorder-row"></div>
+      </div>
       <button id="cut-toggle" class="toggle" type="button" aria-pressed="false" data-i18n="review.cut">Remove background</button>
       <div id="cut-error" class="cut-error" role="alert" hidden>
         <span data-i18n="review.cutErr">Couldn't remove the background. You can keep the original photo.</span>
@@ -95,6 +107,7 @@
       <div class="actions">
         <button id="again" type="button" class="primary"><span data-i18n="res.again">Next guest</span> <span aria-hidden="true">→</span></button>
         <button id="retry" type="button" class="secondary" hidden data-i18n="res.retry">Try again</button>
+        <button id="print" type="button" class="secondary print-btn" data-i18n="res.print">Print</button>
       </div>
       <p id="reset-note" class="reset-note" hidden>
         <svg id="reset-ring" class="ring" viewBox="0 0 36 36" aria-hidden="true" focusable="false">
@@ -147,6 +160,9 @@
           <option value="single" data-i18n="drawer.bmSingle">Single only</option>
           <option value="strip" data-i18n="drawer.bmStrip">Photo Booth only</option>
         </select>
+      </label>
+      <label class="field"><span data-i18n="drawer.showPrint">Show print button</span>
+        <select id="show-print"><option value="on" data-i18n="drawer.on">On</option><option value="off" data-i18n="drawer.off">Off</option></select>
       </label>
       <label class="field"><span data-i18n="drawer.shots">Shots per strip</span>
         <select id="shots-per-strip"><option value="3">3</option><option value="4">4</option><option value="6">6</option></select>

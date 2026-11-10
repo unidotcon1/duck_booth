@@ -11,15 +11,15 @@
   var BASE = '/stickers/';
   var STR = {
     en: {
-      tray: 'Stickers', sticker: 'sticker', del: 'Delete sticker',
-      hint: 'Arrow keys move, plus and minus resize, left and right square brackets rotate, Delete removes, Escape deselects.',
+      tray: 'Stickers', sticker: 'sticker', del: 'Delete sticker', flip: 'Flip sticker', all: 'All', cats: 'Sticker categories',
+      hint: 'Arrow keys move, plus and minus resize, left and right square brackets rotate, F flips, Delete removes, Escape deselects.',
       added: function (n, c) { return 'Added ' + n + '. ' + c + (c === 1 ? ' sticker' : ' stickers') + ' placed.'; },
       removed: function (n, c) { return 'Removed ' + n + '. ' + c + (c === 1 ? ' sticker' : ' stickers') + ' placed.'; },
       limit: 'Sticker limit reached (' + MAX_ITEMS + ').'
     },
     'zh-CN': {
-      tray: '贴纸', sticker: '贴纸', del: '删除贴纸',
-      hint: '方向键移动，加号和减号缩放，左右方括号旋转，Delete 键删除，Esc 键取消选择。',
+      tray: '贴纸', sticker: '贴纸', del: '删除贴纸', flip: '翻转贴纸', all: '全部', cats: '贴纸分类',
+      hint: '方向键移动，加号和减号缩放，左右方括号旋转，F 键翻转，Delete 键删除，Esc 键取消选择。',
       added: function (n, c) { return '已添加' + n + '，共 ' + c + ' 个贴纸。'; },
       removed: function (n, c) { return '已删除' + n + '，共 ' + c + ' 个贴纸。'; },
       limit: '贴纸数量已达上限（' + MAX_ITEMS + '）。'
@@ -170,7 +170,7 @@
       img.className = 'stk-img'; img.alt = ''; img.draggable = false; img.src = d.url;
       node.appendChild(img);
       var w = clamp(d.ar <= 1 ? DEF_SIDE : DEF_SIDE / d.ar, MIN_W, MAX_W);
-      var it = { def: d, el: node, x: clamp(nx, 0, 1), y: clamp(ny, 0, 1), w: w, r: 0 };
+      var it = { def: d, el: node, x: clamp(nx, 0, 1), y: clamp(ny, 0, 1), w: w, r: 0, f: false };
       node.setAttribute('aria-label', itemLabel(it));
       inst.items.push(it); inst.clip.appendChild(node);
       place(node, it);
@@ -192,9 +192,11 @@
     var wasSel = st.selected === it; if (wasSel) st.selected = null;
     releaseDef(it.def);
     select(wasSel ? null : st.selected);
-    if (o && o.kb) { var nx = st.items[st.items.length - 1]; if (nx) nx.el.focus({ preventScroll: true }); else { var b = st.tray.querySelector('.stk-thumb'); if (b) b.focus({ preventScroll: true }); } }
+    if (o && o.kb) { var nx = st.items[st.items.length - 1]; if (nx) nx.el.focus({ preventScroll: true }); else { var b = st.grid && st.grid.querySelector('.stk-thumb:not([hidden])'); if (b) b.focus({ preventScroll: true }); } }
     if (!(o && o.silent)) { announce(T().removed(defName(it.def), st.items.length)); fire(); }
   }
+  function applyFlip(it) { it.el.firstChild.style.transform = it.f ? 'scaleX(-1)' : ''; }
+  function flipItem(it) { it.f = !it.f; applyFlip(it); fire(); }
   function nudge(it, dx, dy, ds, dr) {
     it.x = clamp(it.x + dx, 0, 1); it.y = clamp(it.y + dy, 0, 1);
     it.w = clamp(it.w * ds, MIN_W, MAX_W); it.r = wrapAngle(it.r + dr);
@@ -228,7 +230,7 @@
     if (!st.enabled) return;
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     var t = e.target, tc = t && t.closest ? t : null;
-    if (tc && tc.closest('.stk-del')) return;
+    if (tc && tc.closest('.stk-del, .stk-flip')) return;
     var isHandle = tc && tc.closest('.stk-handle'), nodeEl = tc && tc.closest('.stk-item'), it = nodeEl && findItem(nodeEl);
     if (st.g && st.g.type === 'move') {
       st.pts[e.pointerId] = { x: e.clientX, y: e.clientY };
@@ -312,6 +314,7 @@
     else if (k === '-' || k === '_') nudge(it, 0, 0, 1 / sc, 0);
     else if (k === '[') nudge(it, 0, 0, 1, -rot);
     else if (k === ']') nudge(it, 0, 0, 1, rot);
+    else if (k === 'f' || k === 'F') flipItem(it);
     else if (k === 'Delete' || k === 'Backspace') removeItem(it, { kb: true });
     else return;
     e.preventDefault();
@@ -392,20 +395,54 @@
   }
   function onTrayTouchMove(e) { if (st.tp && st.tp.active && e.cancelable) e.preventDefault(); }
   function onTrayClick(e) {
+    var tab = e.target.closest && e.target.closest('.stk-tab');
+    if (tab) { setCat(tab.getAttribute('data-cat')); return; }
     var btn = e.target.closest && e.target.closest('.stk-thumb'); if (!btn) return;
     if (st.didDrag) { st.didDrag = false; return; }
     var d = st.defById[btn.getAttribute('data-id')]; if (!d || !st.enabled) return;
     addSticker(d, 0.5 + (Math.random() - 0.5) * 0.12, 0.5 + (Math.random() - 0.5) * 0.12, {});
   }
 
+  function catName(c) { var l = lang(); return (c.name && (c.name[l] || c.name.en)) || c.id; }
+  function setCat(id, focus) {
+    st.cat = id;
+    if (st.cats) st.cats.forEach(function (c) {
+      var on = c.id === id; c.btn.setAttribute('aria-selected', on ? 'true' : 'false'); c.btn.tabIndex = on ? 0 : -1; c.btn.classList.toggle('stk-tab-on', on);
+      if (on) { if (focus) c.btn.focus({ preventScroll: true }); if (c.btn.scrollIntoView) c.btn.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
+    });
+    st.defs.forEach(function (d) { if (d.btn) d.btn.hidden = !(id === 'all' || d.category === id); });
+    st.grid.scrollTop = 0;
+  }
+  function onTabKey(e) {
+    var t = e.target.closest && e.target.closest('.stk-tab'); if (!t || !st.cats) return;
+    var i = st.cats.findIndex(function (c) { return c.btn === t; }), n = st.cats.length, k = e.key;
+    if (k === 'ArrowRight') i = (i + 1) % n; else if (k === 'ArrowLeft') i = (i + n - 1) % n; else if (k === 'Home') i = 0; else if (k === 'End') i = n - 1; else return;
+    e.preventDefault(); setCat(st.cats[i].id, true);
+  }
   function buildTray() {
     st.tray.textContent = '';
+    st.tabs = null; st.cat = 'all';
+    // categories (only those that have stickers); tabs hidden if fewer than 2
+    var cats = [];
+    (st.manifestCats || []).forEach(function (c) { if (st.defs.some(function (d) { return d.category === c.id; })) cats.push({ id: c.id, name: c.name }); });
+    st.defs.forEach(function (d) { if (!cats.some(function (c) { return c.id === d.category; })) cats.push({ id: d.category, name: { en: d.category } }); });
+    if (cats.length > 1) {
+      st.cats = [{ id: 'all' }].concat(cats);
+      st.tabs = el('div', 'stk-tabs'); st.tabs.setAttribute('role', 'tablist');
+      st.cats.forEach(function (c) {
+        var t = el('button', 'stk-tab'); t.type = 'button'; t.setAttribute('role', 'tab'); t.setAttribute('data-cat', c.id);
+        c.btn = t; st.tabs.appendChild(t);
+      });
+      st.tray.appendChild(st.tabs);
+    }
+    st.grid = el('div', 'stk-grid'); st.tray.appendChild(st.grid);
     st.defs.forEach(function (d) {
       var b = el('button', 'stk-thumb'); b.type = 'button'; b.setAttribute('data-id', d.id);
       var l = el('span', 'stk-lbl'); b.appendChild(l);
       d.btn = b; d.lbl = l;
-      st.tray.appendChild(b);
+      st.grid.appendChild(b);
     });
+    setCat('all');
     refreshLabels();
     var queue = st.defs.slice(), active = 0, inst = st;
     (function pump() {
@@ -434,6 +471,8 @@
     st.items.forEach(function (it) { it.el.setAttribute('aria-label', itemLabel(it)); });
     st.desc.textContent = s.hint;
     st.delBtn.setAttribute('aria-label', s.del); st.delBtn.title = s.del;
+    st.flipBtn.setAttribute('aria-label', s.flip); st.flipBtn.title = s.flip;
+    if (st.tabs) { st.tabs.setAttribute('aria-label', s.cats); st.cats.forEach(function (c) { c.btn.textContent = c.id === 'all' ? s.all : catName(c); }); }
   }
 
   function init(o) {
@@ -460,6 +499,11 @@
     svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true');
     path.setAttribute('d', 'M7 7l10 10M17 7L7 17'); svg.appendChild(path); inst.delBtn.appendChild(svg);
     inst.chrome.appendChild(inst.delBtn);
+    inst.flipBtn = el('button', 'stk-flip'); inst.flipBtn.type = 'button';
+    var fs = document.createElementNS(SVGNS, 'svg'), fp = document.createElementNS(SVGNS, 'path');
+    fs.setAttribute('viewBox', '0 0 24 24'); fs.setAttribute('aria-hidden', 'true');
+    fp.setAttribute('d', 'M12 3v18M9 7L3 18h6zM15 7l6 11h-6z'); fs.appendChild(fp); inst.flipBtn.appendChild(fs);
+    inst.chrome.appendChild(inst.flipBtn);
     inst.live = el('div', 'stk-sr'); inst.live.setAttribute('role', 'status'); inst.live.setAttribute('aria-live', 'polite');
     inst.desc = el('div', 'stk-sr'); inst.desc.id = inst.descId;
     layer.appendChild(inst.clip); layer.appendChild(inst.chrome); layer.appendChild(inst.live); layer.appendChild(inst.desc);
@@ -473,6 +517,7 @@
     on(layer, 'focusin', onFocusIn);
     on(layer, 'focusout', onFocusOut);
     on(layer, 'wheel', onWheel, { passive: false });
+    on(inst.flipBtn, 'click', function () { if (inst.selected) flipItem(inst.selected); });
     on(inst.delBtn, 'click', function () { if (inst.selected) removeItem(inst.selected, {}); });
     on(tray, 'pointerdown', onTrayDown);
     on(tray, 'pointermove', onTrayMove);
@@ -480,6 +525,7 @@
     on(tray, 'pointercancel', onTrayUp);
     on(tray, 'touchmove', onTrayTouchMove, { passive: false });
     on(tray, 'click', onTrayClick);
+    on(tray, 'keydown', onTabKey);
     on(tray, 'contextmenu', function (e) { if (e.target.closest && e.target.closest('.stk-thumb')) e.preventDefault(); });
     if (window.ResizeObserver) { inst.ro = new ResizeObserver(function () { if (st === inst) layoutAll(); }); inst.ro.observe(layer); }
     else on(window, 'resize', layoutAll);
@@ -499,10 +545,10 @@
           if (m.includeBuiltins === false && x.builtin) return;
           var d = old[x.id] || { id: x.id, refs: 0 };
           d.file = x.file; d.name = x.name && typeof x.name === 'object' ? x.name : { en: String(x.name || x.id) };
-          d.builtin = !!x.builtin; d.broken = false;
+          d.builtin = !!x.builtin; d.broken = false; d.category = typeof x.category === 'string' && x.category ? x.category : (x.builtin ? 'builtin' : 'mine');
           defs.push(d); by[x.id] = d;
         });
-        inst.defs = defs; inst.defById = by;
+        inst.defs = defs; inst.defById = by; inst.manifestCats = m && Array.isArray(m.categories) ? m.categories.filter(function (c) { return c && typeof c.id === 'string'; }) : [];
         buildTray();
       });
   }
@@ -523,7 +569,7 @@
         var bmp = it.def.bmp; if (!bmp) return;
         var sw = it.w * w, sh = sw * it.def.ar;
         ctx.save();
-        ctx.translate(it.x * w, it.y * h); ctx.rotate(it.r);
+        ctx.translate(it.x * w, it.y * h); ctx.rotate(it.r); if (it.f) ctx.scale(-1, 1);
         ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(bmp, -sw / 2, -sh / 2, sw, sh);
         ctx.restore();

@@ -26,7 +26,7 @@
     resetToken: $("reset-token"), keyStatus: $("key-status"),
     rCanvas: $("review-canvas"), rFrame: $("review-frame"), rFrameWrap: $("review-frame-wrap"), rErr: $("review-err"),
     confirm: $("confirm"), qrWaitSel: $("qr-wait"), fGallery: $("filter-gallery"), modeToggle: $("mode-toggle"), shotInd: $("shot-ind"), shotThumbs: $("shot-thumbs"),
-    boothMode: $("booth-mode"), shotsSel: $("shots-per-strip"), layoutSel: $("strip-layout"),
+    boothMode: $("booth-mode"), stripTools: $("strip-tools"), layoutChips: $("layout-chips"), reorder: $("reorder-row"), dateChip: $("chip-date"), timeChip: $("chip-time"), printBtn: $("print"), showPrint: $("show-print"), shotsSel: $("shots-per-strip"), layoutSel: $("strip-layout"),
     stLayer: $("sticker-layer"), stTray: $("sticker-tray"), stBox: $("sticker-box"), rFilterName: $("review-filter-name"), cutText: $("cut-progress-text"),
     cutToggle0: null, scale: $("ui-scale"), scaleVal: $("ui-scale-val"), scaleReset: $("ui-scale-reset"), cutToggle: $("cut-toggle"), cutProgress: $("cut-progress"), cutErr: $("cut-error"), cutKeep: $("cut-keep"), method: $("cutout-method"), tuning: $("tuning"), retake: $("retake"),
     img: $("result-img"), heading: $("result-title"), qr: $("qr"), qrStatus: $("qr-status"), qrText: $("qr-status-text"), qrDots: $("qr-dots"), qrHint: $("qr-hint"),
@@ -606,7 +606,7 @@
   function buildScene() {
     const n = shots.length;
     if (n === 1) { const s = shots[0]; scene = { W: s.raw.width, H: s.raw.height, rects: [{ x: 0, y: 0, w: s.raw.width, h: s.raw.height }], paper: false, footer: 0 }; return; }
-    const W = STRIP_W, fa = 4 / 3, footer = el.rFrame.checked ? 200 : 0;
+    const W = STRIP_W, fa = 4 / 3, footer = (el.rFrame.checked || prefs.date || prefs.time) ? 200 : 0;
     const grid = n === 4 && prefs.layout === "grid";
     const rects = [];
     let H;
@@ -626,7 +626,9 @@
   function drawFooter(ctx, k) {
     const y0 = (scene.H - scene.footer) * k, h = scene.footer * k;
     const text = el.frameText.value.trim();
-    const date = new Date().toLocaleDateString(window.I18N.getLang(), { year: "numeric", month: "short", day: "numeric" });
+    const now = new Date(), lg = window.I18N.getLang();
+    const stamp = [prefs.date && now.toLocaleDateString(lg, { year: "numeric", month: "short", day: "numeric" }),
+      prefs.time && now.toLocaleTimeString(lg, { hour: "2-digit", minute: "2-digit" })].filter(Boolean).join("  ·  ");
     const ch = h * 0.5;
     ctx.save();
     ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#222";
@@ -635,7 +637,7 @@
     ctx.font = `600 ${fs}px system-ui, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif`;
     ctx.fillText(text || "", scene.W * k / 2, y0 + h * 0.70);
     ctx.font = `400 ${fs * 0.8}px system-ui, "PingFang SC", "Microsoft YaHei", sans-serif`; ctx.fillStyle = "#555";
-    ctx.fillText(date, scene.W * k / 2, y0 + h * 0.88);
+    if (stamp) ctx.fillText(stamp, scene.W * k / 2, y0 + h * 0.88);
     ctx.restore();
   }
 
@@ -666,6 +668,7 @@
     const rw = Math.min(scene.W, scene.paper ? 720 : REVIEW_MAX_W), k = rw / scene.W, rh = Math.round(scene.H * k);
     el.rCanvas.width = rw; el.rCanvas.height = rh; el.rCanvas.style.setProperty("--ar", String(rw / rh));
     el.print.classList.toggle("is-strip", scene.paper);
+    syncStripTools();
     refreshReview();
   }
 
@@ -684,6 +687,48 @@
     el.cutToggle.setAttribute("aria-pressed", String(need));
     el.print.classList.toggle("is-cut", need && st === "ready");
   }
+
+  // ----- strip review tools: layout switch, reorder, date/time -----
+  function syncStripTools() {
+    el.stripTools.hidden = !isStrip();
+    if (!isStrip()) return;
+    const grid = shots.length === 4 && prefs.layout === "grid";
+    el.layoutChips.querySelector('[data-layout="grid"]').hidden = shots.length !== 4;
+    el.layoutChips.querySelectorAll("[data-layout]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.layout === (grid ? "grid" : "vertical"))));
+    el.dateChip.setAttribute("aria-pressed", String(!!prefs.date)); el.timeChip.setAttribute("aria-pressed", String(!!prefs.time));
+    el.reorder.textContent = "";
+    shots.forEach((sh, i) => {
+      const c = document.createElement("canvas"); c.width = 96; c.height = 72; c.dataset.i = String(i); c.className = "reo";
+      const r = { x: 0, y: 0, w: 96, h: 72 }; c.getContext("2d").drawImage(sh.raw, ...coverSrc(sh.raw, r), 0, 0, 96, 72);
+      el.reorder.append(c);
+    });
+  }
+  el.layoutChips.querySelectorAll("[data-layout]").forEach((b) => b.addEventListener("click", () => {
+    prefs.layout = b.dataset.layout; el.layoutSel.value = prefs.layout; savePrefs(); if (hasCap) layoutReview();
+  }));
+  [[el.dateChip, "date"], [el.timeChip, "time"]].forEach(([b, k]) => b.addEventListener("click", () => { prefs[k] = !prefs[k]; savePrefs(); if (hasCap) layoutReview(); }));
+  // drag & drop reordering (pointer events: mouse + touch)
+  (() => {
+    let from = -1, ghost = null;
+    const idxAt = (x, y) => { const e = document.elementFromPoint(x, y); return e && e.classList.contains("reo") ? +e.dataset.i : -1; };
+    el.reorder.addEventListener("pointerdown", (e) => {
+      const t = e.target; if (!t.classList.contains("reo")) return;
+      from = +t.dataset.i; t.setPointerCapture(e.pointerId); t.classList.add("drag");
+    });
+    el.reorder.addEventListener("pointermove", (e) => {
+      if (from < 0) return;
+      const to = idxAt(e.clientX, e.clientY);
+      el.reorder.querySelectorAll(".reo").forEach((c) => c.classList.toggle("over", +c.dataset.i === to && to !== from));
+    });
+    const end = (e, commit) => {
+      if (from < 0) return;
+      const to = commit ? idxAt(e.clientX, e.clientY) : -1, f = from; from = -1;
+      el.reorder.querySelectorAll(".reo").forEach((c) => c.classList.remove("drag", "over"));
+      if (to >= 0 && to !== f) { const [m] = shots.splice(f, 1); shots.splice(to, 0, m); layoutReview(); }
+    };
+    el.reorder.addEventListener("pointerup", (e) => end(e, true));
+    el.reorder.addEventListener("pointercancel", (e) => end(e, false));
+  })();
 
   const curMode = () => { const b = prefs.booth || "guests"; if (b === "single" || b === "strip") return b; return prefs.pick === "strip" ? "strip" : "single"; };
   const shotsN = () => [3, 4, 6].includes(+prefs.shots) ? +prefs.shots : 4;
@@ -949,6 +994,7 @@
     paintSliders();
     el.qrWaitSel.value = qrWait; applyScale(prefs.scale);
     el.boothMode.value = ["single", "strip"].includes(prefs.booth) ? prefs.booth : "guests";
+    el.showPrint.value = prefs.print === false ? "off" : "on"; el.printBtn.hidden = prefs.print === false;
     el.shotsSel.value = String(shotsN()); el.layoutSel.value = prefs.layout === "grid" ? "grid" : "vertical"; syncStripOptions(); syncModeUI();
   }
   function applyScale(v) {
@@ -973,6 +1019,8 @@
   el.modeToggle.querySelectorAll("[data-mode]").forEach((b) => b.addEventListener("click", (e) => {
     prefs.pick = b.dataset.mode; savePrefs(); syncModeUI(); if (e.detail > 0) b.blur();
   }));
+  el.showPrint.addEventListener("change", () => { prefs.print = el.showPrint.value !== "off"; el.printBtn.hidden = !prefs.print; savePrefs(); });
+  el.printBtn.addEventListener("click", () => { resetRemain = resetTotal; window.print(); });
   el.boothMode.addEventListener("change", () => { prefs.booth = el.boothMode.value; savePrefs(); syncModeUI(); });
   el.shotsSel.addEventListener("change", () => { prefs.shots = +el.shotsSel.value; syncStripOptions(); savePrefs(); });
   el.layoutSel.addEventListener("change", () => { prefs.layout = el.layoutSel.value; savePrefs(); });
