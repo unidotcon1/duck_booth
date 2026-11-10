@@ -35,6 +35,13 @@
         "en": "Text",
         "zh-CN": "文字"
       }
+    },
+    {
+      "id": "meme",
+      "name": {
+        "en": "Meme",
+        "zh-CN": "梗图"
+      }
     }
   ],
   "items": [
@@ -227,6 +234,18 @@
       },
       "builtin": true,
       "category": "text"
+    },
+    {
+      "id": "u-optional-tung-tung-sahur",
+      "file": "optional/tung-tung-sahur.png",
+      "name": {
+        "en": "Tung Tung Sahur",
+        "zh-CN": "Tung Tung Sahur"
+      },
+      "builtin": false,
+      "category": "meme",
+      "optional": true,
+      "group": "tung-tung-sahur"
     }
   ]
 }

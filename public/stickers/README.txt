@@ -26,3 +26,9 @@ How the list is built
   Prefix file names to control order.
 - Stickers are placed, moved, resized and rotated by the guest; JPEG files have no
   transparency, so prefer PNG/WebP/SVG.
+
+OPTIONAL STICKERS (optional/)
+- Files in the sub-folder optional/ are "optional" stickers (category "Meme" / "梗图"). They are
+  HIDDEN from the tray unless the operator switches them on in the settings drawer (one toggle per
+  file, the group name is the file name without extension, e.g. "tung-tung-sahur").
+  Add a bilingual name in names.json: { "optional/my-meme.png": { "en": "My Meme", "zh": "我的梗图" } }
