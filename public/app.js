@@ -25,7 +25,10 @@
     frameOn: $("frame-on"), frameText: $("frame-text"), frameFile: $("frame-file"), mirror: $("mirror"),
     resetToken: $("reset-token"), keyStatus: $("key-status"),
     rCanvas: $("review-canvas"), rFrame: $("review-frame"), rFrameWrap: $("review-frame-wrap"), rErr: $("review-err"),
-    confirm: $("confirm"), qrWaitSel: $("qr-wait"), scale: $("ui-scale"), scaleVal: $("ui-scale-val"), scaleReset: $("ui-scale-reset"), cutToggle: $("cut-toggle"), cutProgress: $("cut-progress"), cutErr: $("cut-error"), cutKeep: $("cut-keep"), method: $("cutout-method"), tuning: $("tuning"), retake: $("retake"),
+    confirm: $("confirm"), qrWaitSel: $("qr-wait"), fGallery: $("filter-gallery"), modeToggle: $("mode-toggle"), shotInd: $("shot-ind"), shotThumbs: $("shot-thumbs"),
+    boothMode: $("booth-mode"), shotsSel: $("shots-per-strip"), layoutSel: $("strip-layout"),
+    stLayer: $("sticker-layer"), stTray: $("sticker-tray"), stBox: $("sticker-box"), rFilterName: $("review-filter-name"), cutText: $("cut-progress-text"),
+    cutToggle0: null, scale: $("ui-scale"), scaleVal: $("ui-scale-val"), scaleReset: $("ui-scale-reset"), cutToggle: $("cut-toggle"), cutProgress: $("cut-progress"), cutErr: $("cut-error"), cutKeep: $("cut-keep"), method: $("cutout-method"), tuning: $("tuning"), retake: $("retake"),
     img: $("result-img"), heading: $("result-title"), qr: $("qr"), qrStatus: $("qr-status"), qrText: $("qr-status-text"), qrDots: $("qr-dots"), qrHint: $("qr-hint"),
     retry: $("retry"), again: $("again"),
     idleWarn: $("idle-warning"), idleText: $("idle-text"),
@@ -59,7 +62,11 @@
   let lastFrame = 0;
   let bgId = "raw";          // chosen per photo on the review screen (starts at Original)
   let removeOn = false;     // "Remove background" toggled while Original is selected → transparent preview
-  let cutStatus = "idle", cutId = 0, cutPromise = null;   // cut-out cache state for the current capture
+  let cutId = 0, cutPromise = null;   // cut-out generation id / pending run for the current capture
+  let shots = [];           // [{raw, cut, status}] captured frames (1 in Single mode)
+  let scene = null;         // composed layout {W,H,rects,paper}
+  let photoFilter = "none"; // filter fixed at capture time
+  const ST = window.Stickers || null;
   let customBg = null;      // { img: ImageBitmap }
   let customFrame = null;   // ImageBitmap
   let resultUrl = null;     // object URL for result <img>
@@ -77,10 +84,7 @@
   const work = document.createElement("canvas");
   const workCtx = work.getContext("2d", { willReadFrequently: true });
   const pctx = el.preview.getContext("2d");
-  // captured photo (full-res): raw frame + keyed cut-out. Freed on retake / confirm.
-  const capRaw = document.createElement("canvas");
-  const capCut = document.createElement("canvas");
-  let hasCap = false, capW = 0, capH = 0;
+  let hasCap = false;
   const rctx = el.rCanvas.getContext("2d");
   el.print = el.rCanvas.closest(".print");
 
@@ -143,7 +147,7 @@
     } else drawBackground(x, 64, 64, bg, false);
   }
 
-  function makeThumb(id, k) {
+  function makeThumb(id, k, onPick) {
     const btn = document.createElement("button");
     btn.type = "button"; btn.setAttribute("role", "radio"); btn.dataset.id = id;
     btn.setAttribute("data-i18n-aria", k); btn.setAttribute("data-i18n-title", k);
@@ -151,7 +155,7 @@
     const chk = document.createElement("span"); chk.className = "chk"; chk.setAttribute("aria-hidden", "true"); chk.textContent = "✓";
     const lbl = document.createElement("span"); lbl.className = "lbl"; lbl.setAttribute("aria-hidden", "true"); lbl.dataset.i18n = k;
     btn.append(c, chk, lbl);
-    btn.addEventListener("click", (e) => { selectBg(id); if (e.detail > 0) btn.blur(); });   // pointer click: let Space reach the shutter
+    btn.addEventListener("click", (e) => { (onPick || selectBg)(id); if (e.detail > 0) btn.blur(); });   // pointer click: let Space reach the shutter
     applyI(btn);
     return btn;
   }
@@ -244,7 +248,7 @@
     relabelFileThumbs(); syncGallery();
   }
 
-  GALLERIES.forEach((g) => g.addEventListener("keydown", (e) => {
+  [el.rGallery, el.fGallery].forEach((g) => g.addEventListener("keydown", (e) => {
     const keys = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
     const items = [...g.children];
     let i = items.indexOf(document.activeElement);
@@ -253,7 +257,7 @@
     else if (keys[e.key]) i = (i + keys[e.key] + items.length) % items.length;
     else return;
     e.preventDefault();
-    selectBg(items[i].dataset.id); items[i].focus();
+    (g === el.fGallery ? selectFilter : selectBg)(items[i].dataset.id); items[i].focus();
     items[i].scrollIntoView({ block: "nearest", inline: "center" });
   }));
 
@@ -319,18 +323,111 @@
     }
   }
 
-  // Live preview: render keyed subject of the current video frame.
+  // ---------- filters (applied at composite time to the subject only) ----------
+  const FILTERS = [
+    { id: "none", k: "f.none" },
+    { id: "bw", k: "f.bw", p: { gray: 1 } },
+    { id: "sepia", k: "f.sepia", p: { sepia: 0.85 } },
+    { id: "vivid", k: "f.vivid", p: { sat: 1.5, con: 1.1 } },
+    { id: "warm", k: "f.warm", p: { sepia: 0.22, sat: 1.2, hue: -8, bri: 1.04 } },
+    { id: "cool", k: "f.cool", p: { sat: 1.05, hue: 14, bri: 1.02, con: 1.03 } },
+    { id: "fade", k: "f.fade", p: { con: 0.82, bri: 1.1, sat: 0.8 } },
+    { id: "dream", k: "f.dream", p: { bri: 1.05, sat: 1.1 }, glow: { blur: 0.008, alpha: 0.45, bri: 1.15 } },
+    { id: "noir", k: "f.noir", p: { gray: 1, con: 1.6, bri: 0.95 } },
+    { id: "beauty", k: "f.beauty", p: { bri: 1.05, sat: 1.05 }, glow: { blur: 0.004, alpha: 0.35, bri: 1.05 } },
+  ];
+  const SUPPORTS_FILTER = (() => { try { return "filter" in document.createElement("canvas").getContext("2d"); } catch { return false; } })();
+  const filterAvail = (f) => f.id === "none" || SUPPORTS_FILTER || (!f.p.hue && !f.glow);   // Safari fallback: simple per-pixel ones only
+  const FILTER_LIST = FILTERS.filter(filterAvail);
+  let filterId = FILTER_LIST.some((f) => f.id === prefs.filter) ? prefs.filter : "none";
+  const filterById = (id) => FILTER_LIST.find((f) => f.id === id) || FILTERS[0];
+  const cssOf = (p) => [p.gray != null && `grayscale(${p.gray})`, p.sepia != null && `sepia(${p.sepia})`, p.sat != null && `saturate(${p.sat})`,
+    p.con != null && `contrast(${p.con})`, p.bri != null && `brightness(${p.bri})`, p.hue && `hue-rotate(${p.hue}deg)`].filter(Boolean).join(" ") || "none";
+  const fxCanvas = document.createElement("canvas"); let fxCtx = null;
+  function pixelFilter(d, p) {   // fallback for browsers without ctx.filter
+    const g = p.gray || 0, se = p.sepia || 0, sat = p.sat ?? 1, con = p.con ?? 1, bri = p.bri ?? 1;
+    for (let i = 0; i < d.length; i += 4) {
+      let r = d[i], gg = d[i + 1], b = d[i + 2];
+      if (g) { const l = 0.2126 * r + 0.7152 * gg + 0.0722 * b; r += (l - r) * g; gg += (l - gg) * g; b += (l - b) * g; }
+      if (se) {
+        const sr = 0.393 * r + 0.769 * gg + 0.189 * b, sg = 0.349 * r + 0.686 * gg + 0.168 * b, sb = 0.272 * r + 0.534 * gg + 0.131 * b;
+        r += (sr - r) * se; gg += (sg - gg) * se; b += (sb - b) * se;
+      }
+      if (sat !== 1) { const l = 0.2126 * r + 0.7152 * gg + 0.0722 * b; r = l + (r - l) * sat; gg = l + (gg - l) * sat; b = l + (b - l) * sat; }
+      if (con !== 1) { r = (r - 128) * con + 128; gg = (gg - 128) * con + 128; b = (b - 128) * con + 128; }
+      if (bri !== 1) { r *= bri; gg *= bri; b *= bri; }
+      d[i] = r < 0 ? 0 : r > 255 ? 255 : r; d[i + 1] = gg < 0 ? 0 : gg > 255 ? 255 : gg; d[i + 2] = b < 0 ? 0 : b > 255 ? 255 : b;
+    }
+  }
+  // Draw src region → dest rect with filter f (alpha preserved, so cut-outs keep their silhouette).
+  function drawFiltered(ctx, src, sx, sy, sw, sh, dx, dy, dw, dh, f) {
+    if (!f || f.id === "none") { ctx.drawImage(src, sx, sy, sw, sh, dx, dy, dw, dh); return; }
+    if (SUPPORTS_FILTER) {
+      ctx.save();
+      ctx.filter = cssOf(f.p); ctx.drawImage(src, sx, sy, sw, sh, dx, dy, dw, dh);
+      if (f.glow) {   // soft glow: blurred, brightened copy blended on top
+        ctx.filter = `blur(${Math.max(1, f.glow.blur * dw).toFixed(1)}px) brightness(${f.glow.bri})`; ctx.globalAlpha = f.glow.alpha;
+        ctx.drawImage(src, sx, sy, sw, sh, dx, dy, dw, dh);
+      }
+      ctx.restore();
+    } else {
+      const w = Math.max(1, Math.round(dw)), h = Math.max(1, Math.round(dh));
+      fxCanvas.width = w; fxCanvas.height = h; fxCtx = fxCtx || fxCanvas.getContext("2d", { willReadFrequently: true });
+      fxCtx.clearRect(0, 0, w, h); fxCtx.drawImage(src, sx, sy, sw, sh, 0, 0, w, h);
+      const img = fxCtx.getImageData(0, 0, w, h); pixelFilter(img.data, f.p); fxCtx.putImageData(img, 0, 0);
+      ctx.drawImage(fxCanvas, dx, dy, dw, dh);
+    }
+  }
+  function coverSrc(src, r) {   // source rect that "covers" destination rect r
+    const sw = src.width, sh = src.height, ra = r.w / r.h, sa = sw / sh;
+    let cw = sw, ch = sh; if (sa > ra) cw = sh * ra; else ch = sw / ra;
+    return [(sw - cw) / 2, (sh - ch) / 2, cw, ch];
+  }
+
+  function buildFilterGallery() {
+    el.fGallery.textContent = "";
+    for (const f of FILTER_LIST) {
+      const btn = makeThumb(f.id, f.k, (id) => selectFilter(id));
+      el.fGallery.append(btn);
+    }
+    syncFilterGallery(); refreshSwatches();
+  }
+  function syncFilterGallery() {
+    [...el.fGallery.children].forEach((b) => {
+      const on = b.dataset.id === filterId;
+      b.setAttribute("aria-checked", String(on)); b.tabIndex = on ? 0 : -1;
+    });
+  }
+  function selectFilter(id) { filterId = id; prefs.filter = id; savePrefs(); syncFilterGallery(); refreshSwatches(); }
+  // Tiny live-looking swatches: the camera frame (square crop) with each chip's filter, ~3 fps.
+  function refreshSwatches() {
+    if (!video || !video.videoWidth) {
+      for (const b of el.fGallery.children) { const x = b.firstChild.getContext("2d"); const g = x.createLinearGradient(0, 0, 64, 64); g.addColorStop(0, "#c9ccd1"); g.addColorStop(1, "#8b9098"); x.fillStyle = g; x.fillRect(0, 0, 64, 64); }
+      return;
+    }
+    const vw = video.videoWidth, vh = video.videoHeight, side = Math.min(vw, vh);
+    const sx = (vw - side) / 2, sy = (vh - side) / 2;
+    for (const b of el.fGallery.children) {
+      const c = b.firstChild, x = c.getContext("2d");
+      x.save(); if (el.mirror.checked) { x.translate(64, 0); x.scale(-1, 1); }
+      drawFiltered(x, video, sx, sy, side, side, 0, 0, 64, 64, filterById(b.dataset.id));
+      x.restore();
+    }
+  }
+  setInterval(() => { if (state === "live" && !drawerOpen && !document.hidden) refreshSwatches(); }, 330);
+
+  // Live preview: plain camera (Auto) or keyed over a fixed backdrop (Green screen), with the chosen filter.
   function renderFrame(ctx, w, h) {
-    // Auto mode: plain camera. Green-screen mode: keyed live preview over a fixed backdrop.
-    const bg = el.method.value === "green" ? BACKGROUNDS[2] : BACKGROUNDS[0];
+    const green = el.method.value === "green";
     const mirror = el.mirror.checked;
     const vw = video.videoWidth, vh = video.videoHeight;
     if (!vw || !vh) return false;
+    const f = filterById(filterId);
 
-    if (bg.type === "raw") {
+    if (!green) {
       ctx.save();
       if (mirror) { ctx.translate(w, 0); ctx.scale(-1, 1); }
-      ctx.drawImage(video, 0, 0, w, h);
+      drawFiltered(ctx, video, 0, 0, vw, vh, 0, 0, w, h, f);
       ctx.restore();
     } else {
       const sw = Math.min(PREVIEW_W, w), sh = Math.round(sw * h / w);
@@ -343,10 +440,10 @@
       const data = workCtx.getImageData(0, 0, sw, sh);
       chromaKey(data, +el.strength.value, +el.soft.value, +el.despill.value);
       workCtx.putImageData(data, 0, 0);
-      drawBackground(ctx, w, h, bg, false);
-      ctx.drawImage(work, 0, 0, w, h);
+      drawBackground(ctx, w, h, BACKGROUNDS[2], false);
+      drawFiltered(ctx, work, 0, 0, sw, sh, 0, 0, w, h, f);
     }
-    drawFrame(ctx, w, h, el.frameOn.checked);
+    drawFrame(ctx, w, h, el.frameOn.checked && curMode() === "single");
     return true;
   }
 
@@ -437,117 +534,213 @@
 
   // ---------- capture ----------
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const STRIP_W = 1200, STRIP_FRAME_MAX_W = 1280;
 
   function freeCapture() {
-    cutId++; cutStatus = "idle"; cutPromise = null;   // discard any in-flight cut-out
+    cutId++; cutPromise = null;   // discard any in-flight cut-out
     fileBg?.bmp.close(); fileBg = null;                // background image is re-decoded lazily next time
-    capRaw.width = capRaw.height = 0; capCut.width = capCut.height = 0;   // release backing stores
-    hasCap = false;
+    for (const s of shots) { s.raw.width = s.raw.height = 0; if (s.cut) s.cut.width = s.cut.height = 0; }
+    shots = []; hasCap = false; scene = null;
+    el.shotThumbs.textContent = ""; el.shotThumbs.hidden = true;
+    ST?.clear();
   }
 
-  // Grab the current frame at full resolution (mirrored if on). The cut-out is produced separately.
-  function captureFrame() {
+  // Grab the current video frame (mirrored if on) into a new canvas.
+  function grabFrame(maxW) {
     const vw = video.videoWidth, vh = video.videoHeight;
-    if (!vw || !vh) return false;
-    capW = Math.min(vw, CAPTURE_MAX_W); capH = Math.round(capW * vh / vw);
-    capRaw.width = capW; capRaw.height = capH;
-    const rc = capRaw.getContext("2d");
-    rc.save();
-    if (el.mirror.checked) { rc.translate(capW, 0); rc.scale(-1, 1); }
-    rc.drawImage(video, 0, 0, capW, capH);
-    rc.restore();
-    hasCap = true;
-    return true;
+    if (!vw || !vh) return null;
+    const w = Math.min(vw, maxW), h = Math.round(w * vh / vw);
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    const x = c.getContext("2d");
+    if (el.mirror.checked) { x.translate(w, 0); x.scale(-1, 1); }
+    x.drawImage(video, 0, 0, w, h);
+    return c;
   }
 
   function warmSegmenter() {
     if (el.method.value === "auto" && window.Segmenter) window.Segmenter.load().catch(() => { /* surfaced when a cut-out is requested */ });
   }
 
-  // Start (or restart) producing the cut-out for the current capture. Cached in capCut once ready.
-  function startCutout() {
-    const id = cutId;
-    if (el.method.value === "green") {   // chroma key: synchronous
-      capCut.width = capW; capCut.height = capH;
-      const cc = capCut.getContext("2d", { willReadFrequently: true });
-      cc.drawImage(capRaw, 0, 0);
-      const data = cc.getImageData(0, 0, capW, capH);
-      chromaKey(data, +el.strength.value, +el.soft.value, +el.despill.value);
-      cc.putImageData(data, 0, 0);
-      cutStatus = "ready"; return;
-    }
-    if (!window.Segmenter) { cutStatus = "error"; return; }
-    cutStatus = "working";
-    cutPromise = Promise.resolve()
-      .then(() => window.Segmenter.cutout(capRaw))
-      .then((c) => {
-        if (id !== cutId || !hasCap) { if (c && c.width) c.width = c.height = 0; return; }   // retaken meanwhile
-        capCut.width = capW; capCut.height = capH;
-        const x = capCut.getContext("2d"); x.clearRect(0, 0, capW, capH); x.drawImage(c, 0, 0, capW, capH);
-        c.width = c.height = 0;
-        cutStatus = "ready";
-      })
-      .catch(() => { if (id === cutId) cutStatus = "error"; })
-      .then(() => { if (id === cutId && state === "review") refreshReview(); });
+  // Aggregate cut-out status over all shots.
+  function cutAgg() {
+    if (!shots.length) return "idle";
+    if (shots.some((s) => s.status === "error")) return "error";
+    return shots.every((s) => s.status === "ready") ? "ready" : "working";
   }
 
-  function compose(ctx, w, h, forExport, withFrame) {
-    const bg = effBg();
-    if (bg.type === "raw") ctx.drawImage(capRaw, 0, 0, w, h);
-    else { drawBackground(ctx, w, h, bg, forExport); ctx.drawImage(capCut, 0, 0, w, h); }
-    drawFrame(ctx, w, h, withFrame);
+  // Produce cut-outs for every shot, sequentially, cached on each shot.
+  function startCutouts() {
+    const id = cutId;
+    const green = el.method.value === "green";
+    shots.forEach((s) => { s.status = "idle"; });
+    if (green) {   // chroma key: synchronous
+      for (const s of shots) {
+        const c = document.createElement("canvas"); c.width = s.raw.width; c.height = s.raw.height;
+        const cc = c.getContext("2d", { willReadFrequently: true });
+        cc.drawImage(s.raw, 0, 0);
+        const data = cc.getImageData(0, 0, c.width, c.height);
+        chromaKey(data, +el.strength.value, +el.soft.value, +el.despill.value);
+        cc.putImageData(data, 0, 0);
+        s.cut = c; s.status = "ready";
+      }
+      return;
+    }
+    if (!window.Segmenter) { shots.forEach((s) => { s.status = "error"; }); return; }
+    cutPromise = (async () => {
+      for (const s of shots) {
+        if (id !== cutId) return;
+        s.status = "working"; if (state === "review") refreshReview();
+        try {
+          const c = await window.Segmenter.cutout(s.raw);
+          if (id !== cutId) { if (c && c.width) c.width = c.height = 0; return; }   // retaken meanwhile
+          s.cut = c; s.status = "ready";
+        } catch { if (id === cutId) s.status = "error"; break; }
+        if (id === cutId && state === "review") refreshReview();
+      }
+      if (id === cutId && state === "review") refreshReview();
+    })();
+  }
+
+  // ---------- scene layout (single photo or photo strip) ----------
+  const isStrip = () => shots.length > 1;
+  function buildScene() {
+    const n = shots.length;
+    if (n === 1) { const s = shots[0]; scene = { W: s.raw.width, H: s.raw.height, rects: [{ x: 0, y: 0, w: s.raw.width, h: s.raw.height }], paper: false, footer: 0 }; return; }
+    const W = STRIP_W, fa = 4 / 3, footer = el.rFrame.checked ? 200 : 0;
+    const grid = n === 4 && prefs.layout === "grid";
+    const rects = [];
+    let H;
+    if (grid) {
+      const m = 50, g = 30, fw = (W - 2 * m - g) / 2, fh = fw / fa;
+      for (let i = 0; i < 4; i++) rects.push({ x: m + (i % 2) * (fw + g), y: m + Math.floor(i / 2) * (fh + g), w: fw, h: fh });
+      H = Math.round(m + 2 * fh + g + m + footer);
+    } else {
+      const m = 60, g = 36, fw = W - 2 * m, fh = fw / fa;
+      for (let i = 0; i < n; i++) rects.push({ x: m, y: m + i * (fh + g), w: fw, h: fh });
+      H = Math.round(m + n * fh + (n - 1) * g + m + footer);
+    }
+    scene = { W, H, rects, paper: true, footer };
+  }
+  const crest = new Image(); crest.src = "/logo-crest.png";
+
+  function drawFooter(ctx, k) {
+    const y0 = (scene.H - scene.footer) * k, h = scene.footer * k;
+    const text = el.frameText.value.trim();
+    const date = new Date().toLocaleDateString(window.I18N.getLang(), { year: "numeric", month: "short", day: "numeric" });
+    const ch = h * 0.5;
+    ctx.save();
+    ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#222";
+    if (crest.complete && crest.naturalWidth) ctx.drawImage(crest, (scene.W * k - ch * crest.naturalWidth / crest.naturalHeight) / 2, y0 + h * 0.06, ch * crest.naturalWidth / crest.naturalHeight, ch);
+    const fs = h * 0.15;
+    ctx.font = `600 ${fs}px system-ui, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif`;
+    ctx.fillText(text || "", scene.W * k / 2, y0 + h * 0.70);
+    ctx.font = `400 ${fs * 0.8}px system-ui, "PingFang SC", "Microsoft YaHei", sans-serif`; ctx.fillStyle = "#555";
+    ctx.fillText(date, scene.W * k / 2, y0 + h * 0.88);
+    ctx.restore();
+  }
+
+  // Paint one shot into rect r (already in canvas pixels): background + subject(+filter).
+  function paintShot(ctx, s, r, forExport, useCut) {
+    const bg = effBg(), f = filterById(photoFilter);
+    ctx.save(); ctx.beginPath(); ctx.rect(r.x, r.y, r.w, r.h); ctx.clip();
+    if (useCut && s.cut) {
+      ctx.translate(r.x, r.y);
+      if (scene.paper && forExport && bg.type === "transparent") { ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, r.w, r.h); }
+      else drawBackground(ctx, r.w, r.h, bg, forExport);
+      ctx.translate(-r.x, -r.y);
+      drawFiltered(ctx, s.cut, ...coverSrc(s.cut, r), r.x, r.y, r.w, r.h, f);
+    } else drawFiltered(ctx, s.raw, ...coverSrc(s.raw, r), r.x, r.y, r.w, r.h, f);
+    ctx.restore();
+  }
+
+  function composeScene(ctx, k, forExport, useCut) {
+    if (scene.paper) { ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, scene.W * k, scene.H * k); }
+    scene.rects.forEach((r, i) => paintShot(ctx, shots[i], { x: r.x * k, y: r.y * k, w: r.w * k, h: r.h * k }, forExport, useCut));
+    if (scene.paper) { if (scene.footer) drawFooter(ctx, k); }
+    else drawFrame(ctx, scene.W * k, scene.H * k, el.rFrame.checked);
+  }
+
+  // Size the review canvas for the current scene and repaint everything.
+  function layoutReview() {
+    buildScene();
+    const rw = Math.min(scene.W, scene.paper ? 720 : REVIEW_MAX_W), k = rw / scene.W, rh = Math.round(scene.H * k);
+    el.rCanvas.width = rw; el.rCanvas.height = rh; el.rCanvas.style.setProperty("--ar", String(rw / rh));
+    el.print.classList.toggle("is-strip", scene.paper);
+    refreshReview();
   }
 
   // Repaint the review canvas + overlays for the current background / cut-out status.
   function refreshReview() {
-    if (!hasCap) return;
-    const need = needCut();
-    const cw = el.rCanvas.width, ch = el.rCanvas.height;
-    if (need && cutStatus === "ready") compose(rctx, cw, ch, false, el.rFrame.checked);
-    else { rctx.drawImage(capRaw, 0, 0, cw, ch); drawFrame(rctx, cw, ch, el.rFrame.checked); }   // original while waiting / on error
-    el.cutProgress.hidden = !(need && cutStatus === "working");
-    el.cutErr.hidden = !(need && cutStatus === "error");
+    if (!hasCap || !scene) return;
+    const need = needCut(), st = cutAgg();
+    const k = el.rCanvas.width / scene.W;
+    composeScene(rctx, k, false, need && st === "ready");
+    el.cutProgress.hidden = !(need && st === "working");
+    if (!el.cutProgress.hidden) {
+      if (isStrip()) setI(el.cutText, "review.workingN", { i: Math.min(shots.length, shots.filter((s) => s.status === "ready").length + 1), n: shots.length });
+      else setI(el.cutText, "review.working");
+    }
+    el.cutErr.hidden = !(need && st === "error");
     el.cutToggle.setAttribute("aria-pressed", String(need));
-    el.print.classList.toggle("is-cut", need && cutStatus === "ready");
+    el.print.classList.toggle("is-cut", need && st === "ready");
   }
+
+  const curMode = () => { const b = prefs.booth || "guests"; if (b === "single" || b === "strip") return b; return prefs.pick === "strip" ? "strip" : "single"; };
+  const shotsN = () => [3, 4, 6].includes(+prefs.shots) ? +prefs.shots : 4;
 
   async function takePicture() {
     if (state !== "live" || !video || !video.videoWidth) return;
+    const n = curMode() === "strip" ? shotsN() : 1;
+    freeCapture(); photoFilter = filterId;
     setState("countdown"); el.shutter.disabled = true;
-    for (let n = COUNTDOWN_SEC; n > 0; n--) {
-      el.countdown.hidden = false;
-      el.cdNum.textContent = String(n); setI(el.cdSub, `cd.${n}`);
-      el.cdNum.classList.remove("tick"); void el.cdNum.offsetWidth; el.cdNum.classList.add("tick");   // retrigger pop
-      await sleep(1000);
+    for (let i = 0; i < n; i++) {
+      if (!video) break;
+      if (n > 1) { setI(el.shotInd, "shot.of", { i: i + 1, n }); el.shotInd.hidden = false; }
+      for (let c = i === 0 ? COUNTDOWN_SEC : 2; c > 0; c--) {   // later shots use a shorter 2-1 countdown
+        el.countdown.hidden = false;
+        el.cdNum.textContent = String(c); setI(el.cdSub, `cd.${c}`);
+        el.cdNum.classList.remove("tick"); void el.cdNum.offsetWidth; el.cdNum.classList.add("tick");   // retrigger pop
+        await sleep(1000);
+      }
+      el.flash.hidden = false; setTimeout(() => { el.flash.hidden = true; }, 400);
+      const c = video ? grabFrame(n > 1 ? STRIP_FRAME_MAX_W : CAPTURE_MAX_W) : null;
+      if (!c) break;
+      shots.push({ raw: c, cut: null, status: "idle" });
+      if (n > 1) addShotThumb(c);
+      if (i < n - 1) { el.cdNum.textContent = ""; clearI(el.cdSub); await sleep(500); }
     }
-    el.flash.hidden = false; setTimeout(() => { el.flash.hidden = true; }, 400);
+    el.shotInd.hidden = true;
     el.cdNum.textContent = ""; el.cdNum.classList.remove("tick"); setI(el.cdSub, "processing");
     setState("processing");
     await sleep(30);   // let the "Processing…" frame paint before the heavy work
-
-    let ok = false;
-    try { ok = !!video && captureFrame(); } catch { ok = false; }
     el.countdown.hidden = true;
-    if (!ok) {
+    if (shots.length !== n) {
       freeCapture(); setState("live"); el.shutter.disabled = false;
       return showCamError("err.create");
     }
+    hasCap = true;
     showReview();
   }
 
+  function addShotThumb(src) {
+    const c = document.createElement("canvas"); c.width = 96; c.height = 72;
+    const x = c.getContext("2d"), r = { x: 0, y: 0, w: 96, h: 72 };
+    x.drawImage(src, ...coverSrc(src, r), 0, 0, 96, 72);
+    el.shotThumbs.hidden = false; el.shotThumbs.append(c);
+  }
+
   function showReview() {
-    const rw = Math.min(capW, REVIEW_MAX_W), rh = Math.round(rw * capH / capW);
-    el.rCanvas.width = rw; el.rCanvas.height = rh; el.rCanvas.style.setProperty("--ar", String(rw / rh));
-    const frameShown = el.frameOn.checked;
-    el.rFrame.checked = frameShown; el.rFrameWrap.hidden = !frameShown;
     el.rErr.hidden = true; el.confirm.disabled = el.retake.disabled = false;
+    el.rFrameWrap.hidden = !el.frameOn.checked; el.rFrame.checked = el.frameOn.checked;
+    setI(el.rFilterName, filterById(photoFilter).k);
     removeOn = false;
     const saved = prefs.bg;   // last chosen background (falls back to Original if it no longer exists)
     bgId = saved && saved !== "raw" && [...el.rGallery.children].some((b) => b.dataset.id === saved) ? saved : "raw";
     syncGallery(); ensureFileBg(bgId).then(() => { if (state === "review" && hasCap) refreshReview(); });
-    startCutout();   // kick off in the background so it is usually ready by the time a background is picked
-    refreshReview();
+    startCutouts();   // kick off in the background so it is usually ready by the time a background is picked
     showScreen("review"); setState("review");
+    layoutReview();
+    if (ST) { ST.setEnabled(true); ST.load().catch(() => {}); }
     el.confirm.focus({ preventScroll: true });
   }
 
@@ -561,10 +754,12 @@
   }
 
   async function exportBlob(scale) {
-    const w = Math.max(2, Math.round(capW * scale)), h = Math.round(w * capH / capW);
+    const w = Math.max(2, Math.round(scene.W * scale)), h = Math.round(scene.H * scale);
     const c = document.createElement("canvas"); c.width = w; c.height = h;
-    compose(c.getContext("2d"), w, h, true, el.rFrame.checked);
-    const png = effBg().type === "transparent";
+    const ctx = c.getContext("2d");
+    composeScene(ctx, w / scene.W, true, needCut() && cutAgg() === "ready");
+    if (ST) { const r = ST.renderTo(ctx, w, h); if (r && typeof r.then === "function") await r; }   // bake stickers
+    const png = effBg().type === "transparent" && !scene.paper;
     const blob = await new Promise((res) => c.toBlob(res, png ? "image/png" : "image/jpeg", 0.9));
     c.width = c.height = 0;           // release backing store immediately (Safari canvas memory cap)
     if (blob && blob.size > MAX_UPLOAD && scale > 0.4) return exportBlob(scale * 0.7);
@@ -575,16 +770,18 @@
     if (state !== "review" || confirming || !hasCap) return;
     confirming = true; el.confirm.disabled = el.retake.disabled = true; el.rErr.hidden = true;
     const id = cutId;
-    if (needCut() && cutStatus === "working") { refreshReview(); await cutPromise; }   // wait for the cut-out
+    if (needCut() && cutAgg() === "working") { refreshReview(); await cutPromise; }   // wait for the cut-outs
     if (id !== cutId || !hasCap) { confirming = false; return; }
-    if (needCut() && cutStatus !== "ready") { confirming = false; el.confirm.disabled = el.retake.disabled = false; refreshReview(); return; }
+    if (needCut() && cutAgg() !== "ready") { confirming = false; el.confirm.disabled = el.retake.disabled = false; refreshReview(); return; }
     if (effBg().type === "file") await ensureFileBg(bgId);
     let blob = null;
     try { blob = await exportBlob(1); } catch { blob = null; }
     if (!blob) { confirming = false; el.confirm.disabled = el.retake.disabled = false; el.rErr.hidden = false; return; }
     lastBlob = blob;
+    const strip = scene.paper;
+    ST?.setEnabled(false);
     freeCapture();
-    beginResult(blob); upload(blob);   // upload runs while the photo slides away
+    beginResult(blob, strip); upload(blob);   // upload runs while the photo slides away
     await slideOut();
     confirming = false;
     enterResult();
@@ -597,8 +794,9 @@
     return sleep(680);
   }
 
-  function beginResult(blob) {
+  function beginResult(blob, strip) {
     stopReset(); el.qr.classList.remove("ok", "fail"); setI(el.heading, "res.head.ok");
+    el.img.closest(".result-photo").classList.toggle("is-strip", !!strip);
     if (resultUrl) URL.revokeObjectURL(resultUrl);
     resultUrl = URL.createObjectURL(blob);
     el.img.removeAttribute("src"); el.img.src = resultUrl;
@@ -727,7 +925,7 @@
   el.retry.addEventListener("click", () => lastBlob && upload(lastBlob));
   el.confirm.addEventListener("click", confirmPhoto);
   el.retake.addEventListener("click", retake);
-  el.rFrame.addEventListener("change", () => { if (hasCap) refreshReview(); });
+  el.rFrame.addEventListener("change", () => { if (hasCap) layoutReview(); });
   el.cutToggle.addEventListener("click", () => { if (needCut()) selectBg("raw"); else { removeOn = true; refreshReview(); } });
   el.cutKeep.addEventListener("click", () => selectBg("raw"));
 
@@ -750,6 +948,8 @@
     if (prefs.despill) el.despill.value = prefs.despill;
     paintSliders();
     el.qrWaitSel.value = qrWait; applyScale(prefs.scale);
+    el.boothMode.value = ["single", "strip"].includes(prefs.booth) ? prefs.booth : "guests";
+    el.shotsSel.value = String(shotsN()); el.layoutSel.value = prefs.layout === "grid" ? "grid" : "vertical"; syncStripOptions(); syncModeUI();
   }
   function applyScale(v) {
     v = Math.min(3, Math.max(1, Math.round((+v || 1) * 10) / 10));
@@ -760,6 +960,22 @@
   el.scale.addEventListener("input", () => { prefs.scale = applyScale(el.scale.value); savePrefs(); });
   el.scaleReset.addEventListener("click", () => { prefs.scale = applyScale(1); savePrefs(); });
   el.qrWaitSel.addEventListener("change", () => { qrWait = el.qrWaitSel.value === "none" ? "none" : "3min"; prefs.qrWait = qrWait; savePrefs(); });
+  function syncStripOptions() {
+    const gridOpt = el.layoutSel.querySelector('option[value="grid"]');
+    gridOpt.disabled = shotsN() !== 4;
+    if (gridOpt.disabled && prefs.layout === "grid") { prefs.layout = "vertical"; el.layoutSel.value = "vertical"; }
+  }
+  function syncModeUI() {
+    el.modeToggle.hidden = (prefs.booth || "guests") !== "guests";
+    const m = curMode();
+    el.modeToggle.querySelectorAll("[data-mode]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === m)));
+  }
+  el.modeToggle.querySelectorAll("[data-mode]").forEach((b) => b.addEventListener("click", (e) => {
+    prefs.pick = b.dataset.mode; savePrefs(); syncModeUI(); if (e.detail > 0) b.blur();
+  }));
+  el.boothMode.addEventListener("change", () => { prefs.booth = el.boothMode.value; savePrefs(); syncModeUI(); });
+  el.shotsSel.addEventListener("change", () => { prefs.shots = +el.shotsSel.value; syncStripOptions(); savePrefs(); });
+  el.layoutSel.addEventListener("change", () => { prefs.layout = el.layoutSel.value; savePrefs(); });
   const SLIDERS = [[el.strength, "key-strength-val", 50], [el.soft, "key-soft-val", 45], [el.despill, "key-despill-val", 80]];
   function paintSliders() { SLIDERS.forEach(([n, id]) => { $(id).textContent = n.value; }); }
   [el.mirror, el.frameOn, el.frameText, el.strength, el.soft, el.despill].forEach((n) => n.addEventListener("input", syncPrefs));
@@ -777,7 +993,7 @@
   navigator.mediaDevices?.addEventListener?.("devicechange", () => { if (state === "live") listCameras(el.camera.value).catch(() => {}); });
 
   // language switch: static + dynamic text re-render via I18N; refresh generated option labels
-  window.I18N.onChange(() => { relabelFileThumbs(); if (navigator.mediaDevices?.enumerateDevices && state === "live") listCameras(el.camera.value).catch(() => {}); });
+  window.I18N.onChange(() => { relabelFileThumbs(); ST?.refreshLabels?.(); if (navigator.mediaDevices?.enumerateDevices && state === "live") listCameras(el.camera.value).catch(() => {}); });
 
   // ---------- operator drawer ----------
   let returnFocus = null, openedAt = 0;
@@ -859,7 +1075,7 @@
   window.addEventListener("pagehide", () => {
     clearTimeout(idleTimer); stopStream(); freeCapture();
     if (resultUrl) URL.revokeObjectURL(resultUrl);
-    customBg?.img.close(); customFrame?.close(); fileBg?.bmp.close(); wakeLock?.release?.().catch?.(() => {});
+    customBg?.img.close(); customFrame?.close(); fileBg?.bmp.close(); try { ST?.destroy(); } catch { /* ignore */ } wakeLock?.release?.().catch?.(() => {});
   });
 
   // ---------- init ----------
@@ -867,7 +1083,9 @@
     // First-run provisioning: https://host/#k=<token> stores the key, then scrubs it from the URL/history.
     const m = location.hash.match(/[#&]k=([^&]+)/);
     if (m) { store.set(TOKEN_KEY, decodeURIComponent(m[1])); history.replaceState(null, "", location.pathname + location.search); }
-    loadPrefs(); buildGallery(); keepAwake(); paintKeyStatus(); loadManifest();
+    loadPrefs(); buildGallery(); buildFilterGallery(); keepAwake(); paintKeyStatus(); loadManifest();
+    if (ST) { try { ST.init({ layer: el.stLayer, tray: el.stTray, getLang: () => window.I18N.getLang(), onchange() {} }); } catch { /* stickers unavailable */ } }
+    el.stBox.hidden = !ST;
     setI(el.qrText, "res.up"); el.qrDots.hidden = false;
     idleTimer = setTimeout(idleTick, 1000);
     startCamera(null);

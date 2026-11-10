@@ -7,6 +7,7 @@
   <meta name="theme-color" content="#c9ccd0">
   <title>Photo Booth</title>
   <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/stickers.css">
 </head>
 <body data-state="live">
   <!-- LIVE SCREEN (guest-facing: camera, backgrounds, shutter) -->
@@ -20,7 +21,14 @@
           <h1 class="sr-only" data-i18n="brand">Photo Booth</h1>
         </div>
 
+        <div id="mode-toggle" class="mode-toggle" role="group" data-i18n-aria="mode.aria" aria-label="Photo mode">
+          <button type="button" data-mode="single" aria-pressed="true" data-i18n="mode.single">Single</button>
+          <button type="button" data-mode="strip" aria-pressed="false" data-i18n="mode.strip">Photo Booth</button>
+        </div>
+        <div id="shot-thumbs" class="shot-thumbs" hidden></div>
+
         <div id="countdown" class="countdown" hidden aria-live="assertive">
+          <span id="shot-ind" class="shot-ind" hidden></span>
           <span id="cd-num" class="cd-num"></span>
           <span id="cd-sub" class="cd-sub"></span>
         </div>
@@ -28,6 +36,8 @@
         <div id="camera-error" class="camera-error" hidden role="alert"></div>
       </div>
     </section>
+
+    <div id="filter-gallery" class="gallery filter-gallery" role="radiogroup" data-i18n-aria="filter.aria" aria-label="Filter"></div>
 
     <div class="shutter-bar">
       <button id="shutter" class="shutter" type="button" data-i18n="shutter">Take a picture</button>
@@ -41,7 +51,8 @@
       <div class="print">
         <div class="canvas-wrap">
           <canvas id="review-canvas" data-i18n-aria="aria.reviewPhoto" aria-label="Your photo"></canvas>
-          <div id="cut-progress" class="cut-progress" hidden role="status"><span class="spin" aria-hidden="true"></span><span data-i18n="review.working">Removing background…</span></div>
+          <div id="sticker-layer" class="sticker-layer"></div>
+          <div id="cut-progress" class="cut-progress" hidden role="status"><span class="spin" aria-hidden="true"></span><span id="cut-progress-text" data-i18n="review.working">Removing background…</span></div>
         </div>
       </div>
     </section>
@@ -49,12 +60,19 @@
       <p class="micro" data-i18n="review.label">Review</p>
       <h2 data-i18n="review.title">Choose a background</h2>
       <div id="review-gallery" class="gallery review-gallery" role="radiogroup" data-i18n-aria="aria.bg" aria-label="Background"></div>
+      <p class="micro filter-readout"><span data-i18n="review.filterLbl">Filter</span>: <span id="review-filter-name" data-i18n="f.none">Original</span></p>
       <button id="cut-toggle" class="toggle" type="button" aria-pressed="false" data-i18n="review.cut">Remove background</button>
       <div id="cut-error" class="cut-error" role="alert" hidden>
         <span data-i18n="review.cutErr">Couldn't remove the background. You can keep the original photo.</span>
         <button id="cut-keep" type="button" class="secondary-sm" data-i18n="review.keep">Keep original</button>
       </div>
       <label id="review-frame-wrap" class="switch" hidden><input id="review-frame" type="checkbox"> <span data-i18n="review.frame">Event frame</span></label>
+      <div id="sticker-box" class="sticker-box">
+        <p class="micro" data-i18n="st.title">Stickers</p>
+        <p class="note" data-i18n="st.hint">Drag stickers onto your photo</p>
+        <div id="sticker-tray" class="sticker-tray"></div>
+        <p class="note" data-i18n="st.hint2">Tap a sticker to adjust · ✕ to delete</p>
+      </div>
       <p id="review-err" class="err" role="alert" hidden data-i18n="err.create">Could not create the photo. Please try again.</p>
       <div class="actions">
         <button id="confirm" type="button" class="primary" data-i18n="review.confirm">Looks good — get QR</button>
@@ -123,7 +141,24 @@
         <button id="ui-scale-reset" class="secondary-sm" type="button" data-i18n="drawer.scaleReset">Reset</button>
       </div>
 
-      <label class="field"><span data-i18n="drawer.mode">Mode</span>
+      <label class="field"><span data-i18n="drawer.boothMode">Booth mode</span>
+        <select id="booth-mode">
+          <option value="guests" data-i18n="drawer.bmGuests">Guests choose</option>
+          <option value="single" data-i18n="drawer.bmSingle">Single only</option>
+          <option value="strip" data-i18n="drawer.bmStrip">Photo Booth only</option>
+        </select>
+      </label>
+      <label class="field"><span data-i18n="drawer.shots">Shots per strip</span>
+        <select id="shots-per-strip"><option value="3">3</option><option value="4">4</option><option value="6">6</option></select>
+      </label>
+      <label class="field"><span data-i18n="drawer.layout">Strip layout</span>
+        <select id="strip-layout">
+          <option value="vertical" data-i18n="drawer.layoutV">Vertical strip</option>
+          <option value="grid" data-i18n="drawer.layoutG">2×2 grid (4 shots only)</option>
+        </select>
+      </label>
+
+      <label class="field"><span data-i18n="drawer.mode">Camera mode</span>
         <select id="mode">
           <option value="test" data-i18n="drawer.modeTest">Testing — laptop webcam</option>
           <option value="prod" data-i18n="drawer.modeProd">Production — Nikon DSLR (virtual webcam)</option>
@@ -189,6 +224,7 @@
 
   <script src="/vendor/qrcode.js"></script>
   <script src="/i18n.js"></script>
+  <script src="/stickers.js"></script>
   <script src="/segment.js"></script>
   <script src="/app.js"></script>
 </body>
