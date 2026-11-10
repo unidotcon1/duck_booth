@@ -1,4 +1,45 @@
 {
   "includeBuiltins": true,
-  "items": []
+  "items": [
+    {
+      "id": "img-cd",
+      "file": "CD.jpg",
+      "name": {
+        "en": "CD",
+        "zh-CN": "CD"
+      }
+    },
+    {
+      "id": "img-crumpled-paper",
+      "file": "crumpled-paper.jpg",
+      "name": {
+        "en": "Crumpled Paper",
+        "zh-CN": "Crumpled Paper"
+      }
+    },
+    {
+      "id": "img-curtains",
+      "file": "curtains.jpg",
+      "name": {
+        "en": "Curtains",
+        "zh-CN": "Curtains"
+      }
+    },
+    {
+      "id": "img-fabric",
+      "file": "fabric.jpg",
+      "name": {
+        "en": "Fabric",
+        "zh-CN": "Fabric"
+      }
+    },
+    {
+      "id": "img-yearbook",
+      "file": "yearbook.jpg",
+      "name": {
+        "en": "Yearbook",
+        "zh-CN": "Yearbook"
+      }
+    }
+  ]
 }
