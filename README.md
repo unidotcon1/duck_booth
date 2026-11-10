@@ -71,6 +71,64 @@ On your laptop the booth lives at `localhost`, but to a phone "localhost" means 
 
 A warning appears under the QR code whenever it would only work on the laptop.
 
+### Phone on a different Wi-Fi or on mobile data? Use the free quick tunnel
+The steps above only work when the phone and the laptop share the same Wi-Fi. If guests use **mobile data** or a **different Wi-Fi** (for example the venue's guest network), the phone must reach your laptop through the internet. A *Cloudflare quick tunnel* does that for free: it gives your laptop a temporary public `https://…trycloudflare.com` address. **No Cloudflare account, no credit card.**
+
+**What you need to know first**
+- The laptop must stay **on, awake and online** while guests download. If it sleeps or loses internet, the QR codes stop working.
+- The address is **new every time** you start the tunnel (old QR codes stop working when you restart it). Download links stay valid only while the tunnel and the booth are running.
+- It's meant for testing and small events — Cloudflare gives no uptime promise for quick tunnels.
+- Photos stay on your laptop; guests' phones fetch them through the tunnel.
+- The tunnel makes the **whole booth reachable from the internet**, so turn on the upload password first (step 2). Without it, anyone who finds the address could upload files to your laptop.
+
+**Step 1 — Install the tunnel program (once)**
+- **Windows:** open *Command Prompt* and run `winget install Cloudflare.cloudflared`, then **close and reopen** Command Prompt.
+  (No winget? Download `cloudflared-windows-amd64.exe` from <https://github.com/cloudflare/cloudflared/releases/latest>, rename it `cloudflared.exe`, and run it from the folder where you saved it.)
+- **Mac:** `brew install cloudflared`.
+- Check it worked: `cloudflared --version` prints a version number.
+
+**Step 2 — Turn on the upload password (once)**
+1. In the project folder, create a text file named exactly **`.dev.vars`** containing one line, with your own long password (letters and numbers, no spaces):
+   ```
+   KIOSK_TOKEN=pick-a-long-random-password-here
+   ```
+   (Windows: in Notepad choose *Save as → All files* so it doesn't become `.dev.vars.txt`.)
+2. Restart the booth (close its black window, start it again).
+3. In Chrome, open this address **once** to save the password on the booth laptop:
+   `http://localhost:8787/#k=pick-a-long-random-password-here`
+   After that the booth never asks again on this computer. Guests' phones never need it.
+
+**Step 3 — Start the tunnel (every time)**
+1. Start the booth as usual (`start.bat` / `npm start`) and wait until it is running.
+2. Open a **second** Command Prompt / Terminal window and run:
+   ```bash
+   cloudflared tunnel --url http://localhost:8787
+   ```
+3. After a few seconds it prints a boxed message with an address like
+   **`https://random-words-here.trycloudflare.com`** — copy that address (select it, right-click to copy). Keep this window open.
+
+**Step 4 — Give the address to the booth**
+1. On the booth, open **settings** (gear) → **QR code & upload** → **QR link address**.
+2. Paste the `https://…trycloudflare.com` address (no `/` at the end) and close settings.
+3. Keep using `http://localhost:8787` on the booth laptop itself (the camera needs it).
+
+**Step 5 — Test it before the event**
+Take a photo, then scan the QR code with a phone that is on **mobile data** (switch the phone's Wi-Fi off). The photo page should open and the **Download photo** button should save the picture. The warning under the QR code about "only works on this computer" should be gone.
+
+**Every time you restart the tunnel**, repeat step 4 with the new address.
+
+**Stop:** press `Ctrl+C` in the tunnel window (and close the booth window).
+
+| Problem | Fix |
+|---|---|
+| `cloudflared` is not recognized | Close and reopen Command Prompt after installing, or run it from the folder that holds `cloudflared.exe`. |
+| Phone shows "Error 1033" / "can't be reached" | The tunnel was restarted or stopped. Start it again and paste the **new** address into *QR link address*. |
+| Phone page opens but the photo doesn't | The booth itself isn't running, or the laptop went to sleep. Keep it awake (Windows: Settings → System → Power → Screen and sleep → Never while plugged in). |
+| Booth shows "Upload key required" | Open `http://localhost:8787/#k=your-password` once (step 2.3). |
+| The warning under the QR code is still there | The *QR link address* is empty or still `localhost`. Re-do step 4. |
+
+*For a permanent address that works even when your laptop is off, deploy to Cloudflare instead — see [SETUP.md](SETUP.md).*
+
 ---
 
 ## Make it yours
@@ -101,7 +159,7 @@ Operators can also open settings by holding the invisible top-right corner for 1
 | Picture zooms or follows you | Turn off **Automatic framing** in Windows (Settings → Bluetooth & devices → Cameras → your camera). |
 | "Port 8787 is already in use" | Close the other black window that's still running the booth, then start again. |
 | First photo is slow to cut out | The first cut-out loads ~36 MB of AI files; later ones are fast. |
-| QR code "refused to connect" on the phone | See *Phones can't scan localhost* above. |
+| QR code "refused to connect" on the phone | Same Wi-Fi: see *Phones can't scan localhost* above. Different Wi-Fi or mobile data: see *free quick tunnel* above. |
 | Changed a file in `public/backgrounds` or `public/stickers` but nothing happened | Stop and restart the booth (close the black window and start again), then refresh the page. |
 
 ---
