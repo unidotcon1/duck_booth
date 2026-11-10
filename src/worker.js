@@ -30,6 +30,11 @@ function sniffType(b) {
   return null;
 }
 
+// Optional address that phones can reach (set by the start-tunnel script via --var PUBLIC_BASE_URL:...).
+const publicBase = (env) => {
+  const v = String(env.PUBLIC_BASE_URL || "").trim().replace(/\/+$/, "");
+  return /^https?:\/\/[^\s/?#]+(\/[^\s?#]*)?$/i.test(v) ? v : "";
+};
 const keyRequired = (env) => typeof env.KIOSK_TOKEN === "string" && env.KIOSK_TOKEN.length > 0;
 
 // Constant-time-ish compare via SHA-256 digests (no length leak).
@@ -196,7 +201,7 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     try {
-      if (url.pathname === "/api/config") return json({ keyRequired: keyRequired(env) });
+      if (url.pathname === "/api/config") return json({ keyRequired: keyRequired(env), publicBaseUrl: publicBase(env) });
       if (url.pathname === "/api/upload") return await handleUpload(request, env);
       if (url.pathname.startsWith("/p/")) return await handleShare(request, env, url);
       if (url.pathname.startsWith("/api/")) return json({ error: "not_found" }, 404);

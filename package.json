@@ -7,7 +7,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "backgrounds": "node scripts/build-backgrounds.mjs",
     "stickers": "node scripts/build-stickers.mjs",
-    "start": "wrangler dev --ip 0.0.0.0"
+    "start": "wrangler dev --ip 0.0.0.0",
+    "tunnel": "node scripts/start-tunnel.mjs"
   },
   "repository": {
     "type": "git",

@@ -77,7 +77,8 @@
   let fileItems = [];       // manifest background items [{id,file,name}]
   const REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)");
   let drawerOpen = false;
-  const setState = (s) => { state = s; document.body.dataset.state = s; };
+  let phoneLink = "";   // the download link the guest can be sent (set when the QR is shown)
+  const setState = (s) => { state = s; document.body.dataset.state = s; updatePhoneBtn(); };
   const showScreen = (which) => { el.live.hidden = which !== "live"; el.review.hidden = which !== "review"; el.result.hidden = which !== "result"; };
 
   // work canvases (reused → no per-frame allocation)
@@ -963,9 +964,10 @@
 
   // ---------- upload ----------
   let keyRequired = true;   // server decides (GET /api/config); assume required if unknown
+  let serverQrBase = "";    // address phones can reach, provided by the start-tunnel script (GET /api/config)
   const configReady = fetch("/api/config", { cache: "no-store" })
     .then((r) => (r.ok ? r.json() : null))
-    .then((j) => { if (j && j.keyRequired === false) keyRequired = false; })
+    .then((j) => { if (j && j.keyRequired === false) keyRequired = false; if (j && typeof j.publicBaseUrl === "string") serverQrBase = j.publicBaseUrl; })
     .catch(() => { /* keep required */ })
     .then(() => paintKeyStatus());
   function paintKeyStatus() {
@@ -995,7 +997,7 @@
 
   async function upload(blob) {
     if (uploading) return;
-    uploading = true; el.retry.hidden = true; stopReset(); el.qr.classList.remove("ok", "fail");
+    uploading = true; el.retry.hidden = true; stopReset(); el.qr.classList.remove("ok", "fail"); phoneLink = ""; updatePhoneBtn();
     setI(el.heading, "res.head.ok"); setStatus("res.up", true); clearI(el.qrHint);
     const slow = setTimeout(() => { if (uploading) setStatus("res.slow", true); }, 6000);
     try {
@@ -1041,7 +1043,7 @@
   const isLocalHost = (h) => /^(localhost|127\.\d+\.\d+\.\d+|0\.0\.0\.0|\[?::1\]?)$/i.test(h);
   function renderQr(link, id) {
     let href = "";
-    const base = qrBaseUrl();
+    const base = qrBaseUrl() || (isLocalHost(location.hostname) ? serverQrBase : "");
     if (base && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(id || "")) {
       href = `${base}/p/${id}?download`;
     } else {
@@ -1052,6 +1054,7 @@
     }
     let host = ""; try { host = new URL(href).hostname; } catch { /* ignore */ }
     el.qrWarn.hidden = !isLocalHost(host);
+    phoneLink = href; updatePhoneBtn();
     const qr = window.qrcode(0, "M");   // type 0 = auto-size
     qr.addData(href); qr.make();
     el.qr.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });   // SVG string from vendored lib, data is our own URL
@@ -1081,7 +1084,7 @@
     resetTotal = total; resetRemain = total; resetLast = Date.now(); paintReset(); el.resetNote.hidden = false;
     resetTimer = setInterval(() => {
       const now = Date.now(), dt = now - resetLast; resetLast = now;
-      if (uploading || state !== "result") return;   // paused while uploading
+      if (uploading || state !== "result" || document.getElementById("phone-dialog")?.open) { if (document.getElementById("phone-dialog")?.open) resetRemain = resetTotal; return; }   // paused while uploading / entering a number
       resetRemain -= dt; paintReset();
       if (resetRemain <= 0) { stopReset(); backToLive(); }
     }, 250);
@@ -1121,6 +1124,7 @@
     el.showPrint.value = prefs.print === false ? "off" : "on"; el.printBtn.hidden = prefs.print === false;
     el.showSettings.value = prefs.showSettings === false ? "off" : "on"; applySettingsBtn();
     el.qrBase.value = prefs.qrBase || "";
+    $("show-phone").value = prefs.phone === false ? "off" : "on";
     el.shotsSel.value = String(shotsN()); el.layoutSel.value = prefs.layout === "grid" ? "grid" : "vertical"; syncStripOptions(); syncModeUI();
   }
   function applyScale(v) {
@@ -1286,13 +1290,92 @@
     ST.setEnabledGroups([...on]);
   }
 
+  // ---------- send the photo link to a phone (WhatsApp chat link; the number is never stored or sent to any server) ----------
+  function updatePhoneBtn() {
+    const b = document.getElementById("send-phone");
+    if (b) b.hidden = !(phoneLink && prefs.phone !== false && state === "result");
+  }
+  (function phoneSender() {
+    const btn = $("send-phone"), dlg = $("phone-dialog"), form = $("phone-form"), cc = $("ph-cc"), num = $("ph-num"), pad = $("ph-pad");
+    const err = $("ph-err"), localWarn = $("ph-local"), done = $("ph-done"), defCc = $("ph-default-cc"), showSel = $("show-phone");
+    let doneTimer = 0;
+    // default country code selector in settings mirrors the dialog's list
+    [...cc.options].forEach((o) => defCc.append(new Option(o.textContent, o.value)));
+    const validCc = (v) => [...cc.options].some((o) => o.value === v);
+    defCc.value = validCc(prefs.phoneCc) ? prefs.phoneCc : "65";
+    defCc.addEventListener("change", () => { prefs.phoneCc = defCc.value; savePrefs(); });
+    showSel.addEventListener("change", () => { prefs.phone = showSel.value !== "off"; savePrefs(); updatePhoneBtn(); });
+
+    // on-screen number pad (the kiosk may have no keyboard)
+    const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "clr", "0", "del"];
+    for (const k of keys) {
+      const b = document.createElement("button"); b.type = "button"; b.dataset.k = k;
+      if (k === "del") { b.textContent = "⌫"; b.className = "ph-fn"; b.setAttribute("data-i18n-aria", "ph.del"); }
+      else if (k === "clr") { b.className = "ph-fn"; b.setAttribute("data-i18n", "ph.clr"); }
+      else b.textContent = k;
+      pad.append(b);
+    }
+    window.I18N.apply(pad);
+    pad.addEventListener("click", (e) => {
+      const b = e.target.closest("button"); if (!b) return;
+      if (b.dataset.k === "del") num.value = num.value.slice(0, -1);
+      else if (b.dataset.k === "clr") num.value = "";
+      else if (num.value.length < 18) num.value += b.dataset.k;
+      err.hidden = true; num.focus({ preventScroll: true });
+    });
+    num.addEventListener("input", () => { num.value = num.value.replace(/[^\d+\s-]/g, ""); err.hidden = true; });
+
+    function fullNumber() {
+      const raw = num.value.trim(), intl = /^(\+|00)/.test(raw);
+      let d = raw.replace(/\D/g, "");
+      if (intl) { d = d.replace(/^00/, ""); return { full: d, intl: true }; }
+      d = d.replace(/^0+/, "");
+      return { full: cc.value + d, national: d, intl: false };
+    }
+    function validate() {
+      const n = fullNumber();
+      if (n.intl) return /^\d{8,15}$/.test(n.full) ? n : null;
+      if (cc.value === "65") { if (/^[89]\d{7}$/.test(n.national)) return n; return { bad: "ph.errSg" }; }
+      return n.national && /^\d{6,13}$/.test(n.national) && n.full.length <= 15 ? n : null;
+    }
+    const mask = (full) => "+" + full.slice(0, Math.min(2, full.length - 4)) + " •••• " + full.slice(-4);
+    const message = () => {
+      const ev = (el.frameText.value || "").trim();
+      return ev ? window.I18N.t("ph.msgEvent", { event: ev, link: phoneLink }) : window.I18N.t("ph.msg", { link: phoneLink });
+    };
+
+    btn.addEventListener("click", () => {
+      if (!phoneLink) return;
+      num.value = ""; err.hidden = true; cc.value = validCc(prefs.phoneCc) ? prefs.phoneCc : "65";
+      let host = ""; try { host = new URL(phoneLink).hostname; } catch { /* ignore */ }
+      localWarn.hidden = !isLocalHost(host);
+      resetRemain = resetTotal;
+      dlg.showModal(); num.focus({ preventScroll: true });
+    });
+    $("ph-cancel").addEventListener("click", () => { num.value = ""; dlg.close(); });
+    dlg.addEventListener("close", () => { num.value = ""; });   // never keep a number around
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const v = validate();
+      if (!v || v.bad) { window.I18N.set(err, v && v.bad ? v.bad : "ph.err"); err.hidden = false; num.focus(); return; }
+      const url = "https://wa.me/" + v.full + "?text=" + encodeURIComponent(message());
+      const shown = mask(v.full);
+      num.value = "";
+      dlg.close();
+      window.open(url, "_blank", "noopener");
+      window.I18N.set(done, "ph.done", { num: shown }); done.hidden = false;
+      clearTimeout(doneTimer); doneTimer = setTimeout(() => { done.hidden = true; }, 12000);
+      resetRemain = resetTotal;
+    });
+  })();
+
   // ---------- keyboard ----------
   document.addEventListener("keydown", (e) => {
     const ae = document.activeElement, tag = ae?.tagName || "";
     const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(tag);
     if (e.key === "Escape" && drawerOpen) { e.preventDefault(); closeDrawer(); return; }
     if (e.key === "Escape" && state === "countdown") { e.preventDefault(); cancelCapture(); return; }   // stop the photo-taking phase
-    if (e.key === "Enter" && !typing && !drawerOpen && !el.tokenDialog.open) {
+    if (e.key === "Enter" && !typing && !drawerOpen && !el.tokenDialog.open && !document.getElementById("phone-dialog").open) {
       if (state === "result" && tag !== "BUTTON") { e.preventDefault(); backToLive(); return; }          // Next guest
       if (state === "review" && (tag !== "BUTTON" || ae.getAttribute("role") === "radio")) { e.preventDefault(); confirmPhoto(); return; }
     }

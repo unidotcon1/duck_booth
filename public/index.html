@@ -116,11 +116,13 @@
       <h2 id="result-title" data-i18n="res.head.ok">Your photo is ready</h2>
       <div id="qr" class="qr" aria-live="polite"><p id="qr-status"><span id="qr-status-text" data-i18n="res.up">Preparing your download…</span><span id="qr-dots" class="dots" aria-hidden="true"><i></i><i></i><i></i></span></p></div>
       <p id="qr-hint" class="hint"></p>
+      <p id="ph-done" class="note ph-done" role="status" hidden></p>
       <p id="qr-warn" class="qr-warn" role="alert" hidden data-i18n="res.localWarn">This QR only works on this computer. Set a QR link address in settings.</p>
       <div class="actions">
         <button id="again" type="button" class="primary"><span data-i18n="res.again">Next guest</span> <span aria-hidden="true">→</span></button>
         <button id="retry" type="button" class="secondary" hidden data-i18n="res.retry">Try again</button>
         <button id="print" type="button" class="secondary print-btn" data-i18n="res.print">Print</button>
+        <button id="send-phone" type="button" class="secondary" hidden data-i18n="ph.btn">Send to phone</button>
       </div>
       <p id="reset-note" class="reset-note" hidden>
         <svg id="reset-ring" class="ring" viewBox="0 0 36 36" aria-hidden="true" focusable="false">
@@ -185,6 +187,14 @@
           <label class="field set-item" data-kw="gear cog hide button 齿轮 隐藏 设置按钮">
             <span data-i18n="drawer.showSettings">Show settings button</span>
             <select id="show-settings"><option value="on" data-i18n="drawer.on">On</option><option value="off" data-i18n="drawer.off">Off</option></select>
+          </label>
+          <label class="field set-item" data-kw="whatsapp phone number mobile sms send share handphone 手机 号码 发送 分享 短信">
+            <span data-i18n="drawer.showPhone">Show send-to-phone button</span>
+            <select id="show-phone"><option value="on" data-i18n="drawer.on">On</option><option value="off" data-i18n="drawer.off">Off</option></select>
+          </label>
+          <label class="field set-item" data-kw="whatsapp phone country code singapore malaysia 手机 国家 区号 新加坡">
+            <span data-i18n="drawer.phoneCc">Default country code</span>
+            <select id="ph-default-cc"></select>
           </label>
           <label class="field set-item" data-kw="printer printing 打印 打印机">
             <span data-i18n="drawer.showPrint">Show print button</span>
@@ -309,6 +319,31 @@
       </details>
     </div>
   </aside>
+
+  <dialog id="phone-dialog" class="phone-dialog" aria-labelledby="ph-title">
+    <form method="dialog" id="phone-form" novalidate>
+      <h2 id="ph-title" data-i18n="ph.title">Send the link to your phone</h2>
+      <div class="ph-row">
+        <label class="ph-cc-wrap"><span class="sr-only" data-i18n="ph.cc">Country code</span>
+          <select id="ph-cc">
+            <option value="65">SG +65</option><option value="60">MY +60</option><option value="62">ID +62</option><option value="86">CN +86</option>
+            <option value="852">HK +852</option><option value="886">TW +886</option><option value="63">PH +63</option><option value="66">TH +66</option>
+            <option value="84">VN +84</option><option value="91">IN +91</option><option value="61">AU +61</option><option value="44">UK +44</option>
+            <option value="1">US/CA +1</option><option value="81">JP +81</option><option value="82">KR +82</option>
+          </select></label>
+        <label class="ph-num-wrap"><span class="sr-only" data-i18n="ph.num">Mobile number</span>
+          <input id="ph-num" type="tel" inputmode="numeric" autocomplete="off" maxlength="18" placeholder="9123 4567" data-i18n-aria="ph.num" aria-label="Mobile number"></label>
+      </div>
+      <div id="ph-pad" class="ph-pad" role="group" data-i18n-aria="ph.pad" aria-label="Number pad"></div>
+      <p id="ph-err" class="token-err" role="alert" hidden></p>
+      <p id="ph-local" class="qr-warn" hidden data-i18n="res.localWarn">This QR only works on this computer. Set a QR link address in settings.</p>
+      <p class="note" data-i18n="ph.consent">Your number is only used to open a WhatsApp message with your photo link. It is not saved or shared.</p>
+      <div class="dlg-actions">
+        <button id="ph-cancel" class="secondary-sm" type="button" data-i18n="ph.cancel">Cancel</button>
+        <button id="ph-send" class="primary" type="submit" data-i18n="ph.send">Open WhatsApp</button>
+      </div>
+    </form>
+  </dialog>
 
   <dialog id="token-dialog">
     <form method="dialog" id="token-form">

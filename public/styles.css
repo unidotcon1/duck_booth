@@ -449,3 +449,18 @@ mark.sf{background:#ffe08a;color:inherit;border-radius:3px;padding:0 1px}
 .review-gallery{width:100%;align-self:stretch}
 .i18n-st{white-space:normal}
 .i18n-st>span{overflow-wrap:break-word}
+
+/* ---------- send link to phone (WhatsApp) ---------- */
+.phone-dialog{width:min(92vw,460px)}
+.phone-dialog form{display:flex;flex-direction:column;gap:var(--s4)}
+.phone-dialog h2{margin:0;font-weight:300;font-size:calc(var(--ui-scale) * 24px)}
+.ph-row{display:grid;grid-template-columns:auto 1fr;gap:var(--s2)}
+.ph-row select,.ph-row input{min-height:56px;font-size:calc(var(--ui-scale) * 20px);border-radius:var(--r-sm);border:1px solid var(--line);background:#fff;padding:0 var(--s3);color:var(--ink)}
+.ph-row input{letter-spacing:.08em;width:100%}
+.ph-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s2)}
+.ph-pad button{min-height:60px;border-radius:var(--r-sm);border:1px solid var(--line);background:linear-gradient(180deg,#fbfcfd,#e1e4e8);color:var(--ink);
+  font:inherit;font-size:calc(var(--ui-scale) * 24px);font-weight:500;cursor:var(--cur-pointer,pointer);box-shadow:var(--shadow-1)}
+.ph-pad button:active{transform:scale(.97)}
+.ph-pad button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.ph-pad .ph-fn{font-size:calc(var(--ui-scale) * 18px)}
+.ph-done{max-width:34ch;text-align:center}

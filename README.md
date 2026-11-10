@@ -58,6 +58,7 @@ Next time you only need `cd duck_booth` and `npm start`. To update later: `git p
 | Stop a countdown | Press **Esc** (or the Cancel button) |
 | After the photo | Pick a background (the person is cut out automatically), add stickers, then **Looks good — get QR** |
 | Save to a phone | Guest scans the QR code → **see "Phones can't scan localhost" below** |
+| Send the link by WhatsApp | Result screen → **Send to phone** → type a mobile number → **Open WhatsApp** (see below) |
 | Open settings | The round **gear** button (top right), or press **Shift+S** |
 | Switch language | **EN \| 中文** button (top right) |
 
@@ -74,6 +75,13 @@ A warning appears under the QR code whenever it would only work on the laptop.
 ### Phone on a different Wi-Fi or on mobile data? Use the free quick tunnel
 The steps above only work when the phone and the laptop share the same Wi-Fi. If guests use **mobile data** or a **different Wi-Fi** (for example the venue's guest network), the phone must reach your laptop through the internet. A *Cloudflare quick tunnel* does that for free: it gives your laptop a temporary public `https://…trycloudflare.com` address. **No Cloudflare account, no credit card.**
 
+#### Easiest: one click
+1. Install the tunnel program once (Step 1 below).
+2. Double-click **`start-tunnel.bat`** (Mac/Linux: `bash start-tunnel.sh`, or `npm run tunnel`).
+
+That one script starts the tunnel, starts the booth with the new public address already filled into the QR codes, switches the upload password on for you (a random one for each run, or the one in your `.dev.vars` file), and opens the booth in your browser. Keep its window open; press `Ctrl+C` to stop. You can skip steps 2–4 below — they describe doing the same thing by hand.
+
+#### The manual way
 **What you need to know first**
 - The laptop must stay **on, awake and online** while guests download. If it sleeps or loses internet, the QR codes stop working.
 - The address is **new every time** you start the tunnel (old QR codes stop working when you restart it). Download links stay valid only while the tunnel and the booth are running.
@@ -129,6 +137,15 @@ Take a photo, then scan the QR code with a phone that is on **mobile data** (swi
 
 *For a permanent address that works even when your laptop is off, deploy to Cloudflare instead — see [SETUP.md](SETUP.md).*
 
+### Send to phone (WhatsApp)
+On the result screen, **Send to phone** opens a number pad. The guest types their mobile number (default country code **SG +65**; change it in settings, or type the full number starting with `+`), then taps **Open WhatsApp**.
+
+- The booth opens a WhatsApp chat to that number with a ready-made message containing the photo link. **WhatsApp Web or WhatsApp Desktop must be signed in on the booth laptop**, and someone must press **Send** in WhatsApp. Nothing is sent automatically.
+- The guest's phone must be able to open the link, so set up the QR address first (same Wi-Fi, quick tunnel or online deployment, above). A warning shows if the link would only work on the laptop.
+- **Privacy:** the number is used only to build the WhatsApp link in the browser. It is not sent to the booth's server, not saved, and is cleared as soon as the dialog closes (the confirmation shows only the last 4 digits).
+- Turn it off in **settings → General → Show send-to-phone button**.
+- *Automatic SMS* would need a paid SMS service and a deployed server; it is not included.
+
 ---
 
 ## Make it yours
@@ -145,7 +162,7 @@ More advanced options (putting it online with Cloudflare, security key for uploa
 
 The settings are grouped into collapsible sections (General · Photo modes · Camera · Backgrounds & frame · Stickers · QR code & upload). Type in the **search box** at the top to find a setting in English or Chinese (try "camera", "upload", "字体"), press **Esc** to clear it, and use **Expand all / Collapse all**. The sections you leave open are remembered. Press **/** inside the settings to jump to the search box.
 
-QR wait time (3 minutes / no limit) · text size 1×–3× · single / strip mode and how many shots · strip layout · camera choice and framing · QR link address · optional stickers · manage stickers · print button on/off · settings button on/off.
+QR wait time (3 minutes / no limit) · text size 1×–3× · send-to-phone on/off and default country code · single / strip mode and how many shots · strip layout · camera choice and framing · QR link address · optional stickers · manage stickers · print button on/off · settings button on/off.
 Operators can also open settings by holding the invisible top-right corner for 1.5 seconds, or adding `?admin=1` to the address.
 
 ---
