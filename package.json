@@ -1,0 +1,26 @@
+{
+  "name": "duck_booth",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/unidotcon1/duck_booth.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/unidotcon1/duck_booth/issues"
+  },
+  "homepage": "https://github.com/unidotcon1/duck_booth#readme",
+  "devDependencies": {
+    "wrangler": "^4.159.0"
+  },
+  "dependencies": {
+    "qrcode-generator": "^1.4.4"
+  }
+}
