@@ -1,4 +1,4 @@
-# photo buth — how to run and view it
+# photo booth — how to run and view it
 
 ## A. On your laptop (fastest, no Cloudflare account needed)
 Requirements: Node 18+ and a webcam. The browser allows the camera on `http://localhost` (no HTTPS needed).
@@ -24,14 +24,14 @@ Requires a free Cloudflare account with R2 enabled (R2 needs a payment method on
 
 ```bash
 npx wrangler login
-npx wrangler r2 bucket create photo-buth-photos
-npx wrangler r2 bucket lifecycle add photo-buth-photos expire-photos --prefix photos/ --expire-days 31
+npx wrangler r2 bucket create photo-booth-photos
+npx wrangler r2 bucket lifecycle add photo-booth-photos expire-photos --prefix photos/ --expire-days 31
 npx wrangler secret put KIOSK_TOKEN       # paste a long random string
 npx wrangler deploy
 ```
 
-Wrangler prints your URL, like `https://photo-buth.<your-subdomain>.workers.dev`.
-On the kiosk laptop open `https://photo-buth.<your-subdomain>.workers.dev/#k=<your KIOSK_TOKEN>` once. Guests' phones then open the QR link on the same domain.
+Wrangler prints your URL, like `https://photo-booth.<your-subdomain>.workers.dev`.
+On the kiosk laptop open `https://photo-booth.<your-subdomain>.workers.dev/#k=<your KIOSK_TOKEN>` once. Guests' phones then open the QR link on the same domain.
 
 ## C. Using the Nikon
 Install Nikon Webcam Utility (or an NDI/HDMI-capture virtual webcam), connect the camera, then in the operator drawer choose **Production** mode and pick the Nikon from the Camera list. Use a green backdrop with even lighting for clean keying.

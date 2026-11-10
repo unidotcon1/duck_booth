@@ -21,6 +21,7 @@
     "wrangler": "^4.159.0"
   },
   "dependencies": {
+    "@mediapipe/tasks-vision": "0.10.21",
     "qrcode-generator": "^1.4.4"
   }
 }

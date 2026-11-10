@@ -1,4 +1,4 @@
-// photo buth — Cloudflare Worker (API + share links). Static UI is served by the assets binding.
+// photo booth — Cloudflare Worker (API + share links). Static UI is served by the assets binding.
 //
 // Routes
 //   POST /api/upload   kiosk-authenticated JPEG/PNG upload -> { id, url, downloadUrl, expiresAt }
@@ -188,7 +188,7 @@ async function handleShare(request, env, url) {
     ETag: obj.httpEtag,
     ...SECURITY_HEADERS,
   };
-  if (wantsDownload) headers["Content-Disposition"] = `attachment; filename="photo-buth-${id.slice(0, 8)}.${ext}"`;
+  if (wantsDownload) headers["Content-Disposition"] = `attachment; filename="photo-booth-${id.slice(0, 8)}.${ext}"`;
   return new Response(request.method === "HEAD" ? null : obj.body, { headers });
 }
 

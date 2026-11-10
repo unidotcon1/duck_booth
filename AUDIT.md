@@ -1,4 +1,4 @@
-# photo buth — architecture audit ("grill") & what was changed
+# photo booth — architecture audit ("grill") & what was changed
 
 ## Security findings in the original blueprint → fix applied
 | # | Finding | Fix in code |
@@ -27,8 +27,8 @@
 ## Deploy
 ```bash
 npm install
-npx wrangler r2 bucket create photo-buth-photos
-npx wrangler r2 bucket lifecycle add photo-buth-photos expire-photos --prefix photos/ --expire-days 31
+npx wrangler r2 bucket create photo-booth-photos
+npx wrangler r2 bucket lifecycle add photo-booth-photos expire-photos --prefix photos/ --expire-days 31
 npx wrangler secret put KIOSK_TOKEN      # long random string
 npx wrangler deploy
 # open https://<worker>.workers.dev/#k=<KIOSK_TOKEN> once on the kiosk

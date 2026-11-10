@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "photo-buth",
+  "name": "photo-booth",
   "main": "src/worker.js",
   "compatibility_date": "2025-09-01",
 
@@ -13,7 +13,7 @@
   },
 
   "r2_buckets": [
-    { "binding": "PHOTOS", "bucket_name": "photo-buth-photos" }
+    { "binding": "PHOTOS", "bucket_name": "photo-booth-photos" }
   ],
 
   // Per-IP upload throttle (Workers Rate Limiting binding).
