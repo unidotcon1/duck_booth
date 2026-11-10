@@ -52,8 +52,9 @@ const natural = (a, b) => a.localeCompare(b, undefined, { numeric: true });
 const slug = (f) => basename(f, extname(f)).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
 const CATS = {
-  fun: ["Fun", "趣味"], faith: ["Faith", "信仰"], party: ["Party", "派对"], shapes: ["Shapes", "形状"], text: ["Text", "文字"], mine: ["Mine", "我的"],
+  fun: ["Fun", "趣味"], faith: ["Faith", "信仰"], party: ["Party", "派对"], shapes: ["Shapes", "形状"], text: ["Text", "文字"], mine: ["Mine", "我的"], meme: ["Meme", "梗图"],
 };
+const OPTIONAL_NAMES = { "tung-tung-sahur": { en: "Tung Tung Sahur", "zh-CN": "Tung Tung Sahur" } };
 const BUILTIN_CAT = {
   sunglasses: "fun", "bow-tie": "fun", crown: "fun", sparkles: "fun",
   cross: "faith", dove: "faith", "olive-branch": "faith", "praying-hands": "faith", laurel: "faith",
@@ -78,17 +79,22 @@ const catOrder = [];      // [{id, name}]
 const catSeen = new Set();
 const addCat = (id, name) => { if (!catSeen.has(id)) { catSeen.add(id); catOrder.push({ id, name }); } };
 
-const add = (file, cat, builtin) => {
+const add = (file, cat, builtin, optional) => {
   const f = basename(file);
   let id = (builtin ? "b-" : "u-") + (builtin ? slug(f) : file.replace(/\.[^.\/]+$/, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""));
   for (let i = 2; seen.has(id); i++) id += "-" + i;
   seen.add(id);
   let en, zh;
   if (builtin) { const n = BUILTIN_NAMES[basename(f, ".svg")]; en = n ? n[0] : pretty(f); zh = n ? n[1] : en; }
+  const grp = optional ? basename(f, extname(f)) : null;
+  const on = optional ? OPTIONAL_NAMES[grp] || {} : {};
+  if (optional) { en = on.en; zh = on["zh-CN"]; }
   const o = names[file] || {};
   en = o.en || en || pretty(f);
   zh = o.zh || o["zh-CN"] || zh || en;
-  items.push({ id, file, name: { en, "zh-CN": zh }, builtin, category: cat });
+  const it = { id, file, name: { en, "zh-CN": zh }, builtin, category: cat };
+  if (optional) { it.optional = true; it.group = grp; }
+  items.push(it);
 };
 
 const pending = []; // [catId, file, builtin]
@@ -96,7 +102,7 @@ if (includeBuiltins) {
   for (const f of list(join(dir, "builtin"), true)) pending.push([BUILTIN_CAT[basename(f, ".svg")] || "fun", "builtin/" + f, true]);
 }
 // user sub-folders (any folder except builtin) -> categories
-const folders = existsSync(dir) ? readdirSync(dir, { withFileTypes: true }).filter((d) => d.isDirectory() && d.name !== "builtin" && !d.name.startsWith(".")).map((d) => d.name).sort(natural) : [];
+const folders = existsSync(dir) ? readdirSync(dir, { withFileTypes: true }).filter((d) => d.isDirectory() && d.name !== "builtin" && d.name !== "optional" && !d.name.startsWith(".")).map((d) => d.name).sort(natural) : [];
 for (const fo of folders) {
   const files = list(join(dir, fo), false);
   if (!files.length) continue;
@@ -105,6 +111,7 @@ for (const fo of folders) {
   addCat(cid, { en: o.en || pretty(fo), "zh-CN": o.zh || o["zh-CN"] || o.en || pretty(fo) });
   files.forEach((f) => pending.push([cid, fo + "/" + f, false]));
 }
+for (const f of list(join(dir, "optional"), false)) pending.push(["meme", "optional/" + f, false, true]);
 for (const f of list(dir, false)) pending.push(["mine", f, false]);
 
 // category order: built-in cats (fixed order), user folders, Mine
@@ -113,8 +120,9 @@ const used = new Set(pending.map((p) => p[0]));
 const cats = [];
 for (const id of order) if (used.has(id)) cats.push({ id, name: { en: CATS[id][0], "zh-CN": CATS[id][1] } });
 for (const c of catOrder) cats.push(c);
+if (used.has("meme")) { const o = names["optional/"] || {}; cats.push({ id: "meme", name: { en: o.en || CATS.meme[0], "zh-CN": o.zh || o["zh-CN"] || CATS.meme[1] } }); }
 if (used.has("mine")) { const o = names["mine/"] || {}; cats.push({ id: "mine", name: { en: o.en || CATS.mine[0], "zh-CN": o.zh || o["zh-CN"] || CATS.mine[1] } }); }
-for (const c of cats) for (const p of pending) if (p[0] === c.id) add(p[1], p[0], p[2]);
+for (const c of cats) for (const p of pending) if (p[0] === c.id) add(p[1], p[0], p[2], p[3]);
 
 writeFileSync(join(dir, "manifest.json"), JSON.stringify({ includeBuiltins, categories: cats, items }, null, 2) + "\n");
 console.log(`[stickers] manifest.json: ${items.length} stickers in ${cats.length} categories`);

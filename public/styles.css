@@ -266,7 +266,7 @@ dialog .primary{min-height:56px;font-size:calc(var(--ui-scale) * (18px))}
 body[data-state=countdown] .mode-toggle,body[data-state=processing] .mode-toggle{visibility:hidden}
 .shot-ind{padding:6px 18px;border-radius:999px;background:rgb(15 17 20/.6);color:#fff;font-size:18px;font-weight:600;letter-spacing:.08em}
 .shot-thumbs{position:absolute;left:var(--s4);top:50%;transform:translateY(-50%);z-index:4;display:flex;flex-direction:column;gap:8px;max-height:84%;overflow:hidden}
-.shot-thumbs canvas{display:block;width:clamp(64px,9vh,96px);height:auto;aspect-ratio:4/3;border:3px solid #fff;border-radius:4px;box-shadow:var(--shadow-1)}
+.shot-thumbs canvas{display:block;width:clamp(64px,9vh,96px);height:auto;border:3px solid #fff;border-radius:4px;box-shadow:var(--shadow-1)}
 .filter-readout{text-transform:none;letter-spacing:.08em}
 .filter-readout span+span{color:var(--ink)}
 .sticker-layer{position:absolute;inset:0;z-index:2}
@@ -328,7 +328,7 @@ body[data-state=countdown] .mode-toggle,body[data-state=processing] .mode-toggle
 .chips button[aria-pressed=true]{background:var(--ink);color:#fff}
 .chips button[hidden]{display:none}
 .reorder-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;touch-action:none}
-.reorder-row canvas{width:64px;height:48px;border:2px solid #fff;border-radius:4px;box-shadow:var(--shadow-1);cursor:var(--cur-pointer);touch-action:none}
+.reorder-row canvas{width:64px;height:auto;border:2px solid #fff;border-radius:4px;box-shadow:var(--shadow-1);cursor:var(--cur-pointer);touch-action:none}
 .reorder-row canvas.drag{opacity:.5;cursor:var(--cur-pointer)}
 .reorder-row canvas.over{outline:3px solid var(--focus)}
 .print-btn{min-height:56px}
@@ -376,3 +376,24 @@ button,[role=button],[role=radio],a,select,label,summary,input[type=range],input
 button:disabled,[aria-disabled=true]{cursor:var(--cur-arrow)}
 input[type=text],input[type=password],textarea{cursor:text}
 body.busy,body.busy *{cursor:var(--cur-wait)!important}
+
+/* ---------- round 10: settings button, capture bar, QR warning ---------- */
+.admin-open{width:48px;height:48px;border:1px solid var(--line);background:linear-gradient(180deg,#fbfcfd 0%,#dcdfe3 100%);
+  box-shadow:var(--shadow-1),inset 0 1px 0 #fff;color:var(--ink);transition:transform .2s,box-shadow .2s}
+.admin-open svg{width:24px;height:24px;transition:transform .5s ease}
+.admin-open:hover{box-shadow:var(--shadow-2),inset 0 1px 0 #fff}
+.admin-open:hover svg{transform:rotate(60deg)}
+.admin-open:active{transform:scale(.95)}
+.admin-open:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+.cap-bar{position:absolute;left:50%;bottom:var(--s4);transform:translateX(-50%);z-index:12;display:flex;align-items:center;gap:var(--s3);
+  padding:6px 6px 6px 18px;border-radius:999px;background:rgb(20 22 26/.74);color:#fff;font-size:calc(var(--ui-scale) * 14px);letter-spacing:.04em}
+.cap-bar button{min-height:44px;padding:0 var(--s4);border-radius:999px;border:1px solid rgb(255 255 255/.55);background:transparent;color:#fff;
+  cursor:var(--cur-pointer);font:inherit;font-weight:600}
+.cap-bar button:hover{background:rgb(255 255 255/.14)}
+.qr-warn{margin:var(--s2) 0 0;max-width:34ch;text-align:center;font-size:calc(var(--ui-scale) * 14px);line-height:1.4;color:#7a2d00;
+  background:#fff3e0;border:1px solid #f0c78a;border-radius:var(--r);padding:var(--s2) var(--s3)}
+#opt-stk{display:flex;flex-direction:column;gap:var(--s2)}
+#opt-stk label{display:flex;align-items:center;gap:var(--s2);cursor:var(--cur-pointer)}
+@media (prefers-reduced-motion:reduce){.admin-open svg,.admin-open{transition:none}.admin-open:hover svg{transform:none}}
+#opt-stk label{flex-direction:row;align-items:center;justify-content:flex-start;text-align:left}
+#opt-stk input[type=checkbox]{width:22px;height:22px;flex:none;margin:0}

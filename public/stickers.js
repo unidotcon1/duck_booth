@@ -26,6 +26,7 @@
     }
   };
 
+  var enabledGroups = {};   // optional-sticker groups the operator switched on (default: none)
   var st = null;          // live instance state (null when not initialised)
   var uid = 0;
   var SVGNS = 'http://www.w3.org/2000/svg';
@@ -419,13 +420,17 @@
     if (k === 'ArrowRight') i = (i + 1) % n; else if (k === 'ArrowLeft') i = (i + n - 1) % n; else if (k === 'Home') i = 0; else if (k === 'End') i = n - 1; else return;
     e.preventDefault(); setCat(st.cats[i].id, true);
   }
+  function isVisible(d) { return !d.optional || !!enabledGroups[d.group]; }
   function buildTray() {
+    var keep = st.cat || 'all';
     st.tray.textContent = '';
-    st.tabs = null; st.cat = 'all';
+    st.tabs = null; st.cats = null; st.cat = 'all';
+    var vis = st.defs.filter(isVisible);
+    st.defs.forEach(function (d) { if (!isVisible(d)) { d.btn = null; d.lbl = null; } });
     // categories (only those that have stickers); tabs hidden if fewer than 2
     var cats = [];
-    (st.manifestCats || []).forEach(function (c) { if (st.defs.some(function (d) { return d.category === c.id; })) cats.push({ id: c.id, name: c.name }); });
-    st.defs.forEach(function (d) { if (!cats.some(function (c) { return c.id === d.category; })) cats.push({ id: d.category, name: { en: d.category } }); });
+    (st.manifestCats || []).forEach(function (c) { if (vis.some(function (d) { return d.category === c.id; })) cats.push({ id: c.id, name: c.name }); });
+    vis.forEach(function (d) { if (!cats.some(function (c) { return c.id === d.category; })) cats.push({ id: d.category, name: { en: d.category } }); });
     if (cats.length > 1) {
       st.cats = [{ id: 'all' }].concat(cats);
       st.tabs = el('div', 'stk-tabs'); st.tabs.setAttribute('role', 'tablist');
@@ -436,15 +441,15 @@
       st.tray.appendChild(st.tabs);
     }
     st.grid = el('div', 'stk-grid'); st.tray.appendChild(st.grid);
-    st.defs.forEach(function (d) {
+    vis.forEach(function (d) {
       var b = el('button', 'stk-thumb'); b.type = 'button'; b.setAttribute('data-id', d.id);
       var l = el('span', 'stk-lbl'); b.appendChild(l);
       d.btn = b; d.lbl = l;
       st.grid.appendChild(b);
     });
-    setCat('all');
+    setCat(st.cats && st.cats.some(function (c) { return c.id === keep; }) ? keep : 'all');
     refreshLabels();
-    var queue = st.defs.slice(), active = 0, inst = st;
+    var queue = vis.slice(), active = 0, inst = st;
     (function pump() {
       while (active < 4 && queue.length) (function (d) {
         active++;
@@ -545,7 +550,7 @@
           if (m.includeBuiltins === false && x.builtin) return;
           var d = old[x.id] || { id: x.id, refs: 0 };
           d.file = x.file; d.name = x.name && typeof x.name === 'object' ? x.name : { en: String(x.name || x.id) };
-          d.builtin = !!x.builtin; d.broken = false; d.category = typeof x.category === 'string' && x.category ? x.category : (x.builtin ? 'builtin' : 'mine');
+          d.builtin = !!x.builtin; d.broken = false; d.optional = !!x.optional; d.group = typeof x.group === 'string' ? x.group : ''; d.category = typeof x.category === 'string' && x.category ? x.category : (x.builtin ? 'builtin' : 'mine');
           defs.push(d); by[x.id] = d;
         });
         inst.defs = defs; inst.defById = by; inst.manifestCats = m && Array.isArray(m.categories) ? m.categories.filter(function (c) { return c && typeof c.id === 'string'; }) : [];
@@ -553,6 +558,14 @@
       });
   }
 
+  function setEnabledGroups(arr) {
+    enabledGroups = {};
+    (Array.isArray(arr) ? arr : []).forEach(function (g) { enabledGroups[String(g)] = true; });
+    if (st && st.defs.length) buildTray();   // placed stickers are untouched
+  }
+  function listOptionalGroups() {
+    return st ? st.defs.filter(function (d) { return d.optional && !d.broken; }).map(function (d) { return { group: d.group, name: d.name, file: d.file }; }) : [];
+  }
   function clear() {
     if (!st) return;
     var had = st.items.length > 0;
@@ -609,5 +622,5 @@
     st = null;
   }
 
-  window.Stickers = { init: init, load: load, clear: clear, count: count, destroy: destroy, refreshLabels: refreshLabels, renderTo: renderTo, setEnabled: setEnabled, MAX: MAX_ITEMS };
+  window.Stickers = { init: init, load: load, clear: clear, count: count, destroy: destroy, refreshLabels: refreshLabels, renderTo: renderTo, setEnabled: setEnabled, setEnabledGroups: setEnabledGroups, listOptionalGroups: listOptionalGroups, MAX: MAX_ITEMS };
 })();

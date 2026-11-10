@@ -26,7 +26,7 @@
     resetToken: $("reset-token"), keyStatus: $("key-status"),
     rCanvas: $("review-canvas"), rFrame: $("review-frame"), rFrameWrap: $("review-frame-wrap"), rErr: $("review-err"),
     confirm: $("confirm"), qrWaitSel: $("qr-wait"), fGallery: $("filter-gallery"), modeToggle: $("mode-toggle"), shotInd: $("shot-ind"), shotThumbs: $("shot-thumbs"),
-    boothMode: $("booth-mode"), stripTools: $("strip-tools"), paperChips: $("paper-chips"), layoutChips: $("layout-chips"), reorder: $("reorder-row"), dateChip: $("chip-date"), timeChip: $("chip-time"), printBtn: $("print"), showPrint: $("show-print"), shotsSel: $("shots-per-strip"), layoutSel: $("strip-layout"),
+    boothMode: $("booth-mode"), framing: $("cam-framing"), camStatus: $("cam-status"), stripTools: $("strip-tools"), paperChips: $("paper-chips"), layoutChips: $("layout-chips"), reorder: $("reorder-row"), dateChip: $("chip-date"), timeChip: $("chip-time"), printBtn: $("print"), showPrint: $("show-print"), showSettings: $("show-settings"), qrBase: $("qr-base"), qrWarn: $("qr-warn"), capBar: $("cap-bar"), capCancel: $("cap-cancel"), optStk: $("opt-stk"), optStkBox: $("opt-stk-box"), shotsSel: $("shots-per-strip"), layoutSel: $("strip-layout"),
     stLayer: $("sticker-layer"), stTray: $("sticker-tray"), stBox: $("sticker-box"), rFilterName: $("review-filter-name"), cutText: $("cut-progress-text"),
     cutToggle0: null, scale: $("ui-scale"), scaleVal: $("ui-scale-val"), scaleReset: $("ui-scale-reset"), cutToggle: $("cut-toggle"), cutProgress: $("cut-progress"), cutErr: $("cut-error"), cutKeep: $("cut-keep"), method: $("cutout-method"), tuning: $("tuning"), retake: $("retake"),
     img: $("result-img"), heading: $("result-title"), qr: $("qr"), qrStatus: $("qr-status"), qrText: $("qr-status-text"), qrDots: $("qr-dots"), qrHint: $("qr-hint"),
@@ -459,16 +459,50 @@
     else { clearI(el.camErr); el.camErr.hidden = true; el.shutter.disabled = false; }
   }
 
+  const framingMode = () => (["16x9", "4x3"].includes(prefs.framing) ? prefs.framing : "widest");
   function constraintsFor(deviceId) {
-    const prod = el.mode.value === "prod";
-    return {
-      audio: false,
-      video: {
-        ...(deviceId ? { deviceId: { exact: deviceId } } : { facingMode: "user" }),
-        width: { ideal: prod ? 1920 : 1280 }, height: { ideal: prod ? 1080 : 720 },
-        frameRate: { ideal: 30 },
-      },
-    };
+    const prod = el.mode.value === "prod", fm = framingMode();
+    const v = { ...(deviceId ? { deviceId: { exact: deviceId } } : { facingMode: "user" }), frameRate: { ideal: 30 }, resizeMode: { ideal: "none" } };
+    if (fm === "4x3") { v.width = { ideal: 1600 }; v.height = { ideal: 1200 }; v.aspectRatio = { ideal: 4 / 3 }; }
+    else { v.width = { ideal: prod ? 1920 : fm === "16x9" ? 1280 : 1920 }; v.height = { ideal: prod ? 1080 : fm === "16x9" ? 720 : 1080 }; if (fm === "16x9") v.aspectRatio = { ideal: 16 / 9 }; }
+    return { audio: false, video: v };
+  }
+
+  // Widest view: when a 4:3 mode is available (the 16:9 stream is usually a crop of a 4:3 sensor), prefer it.
+  async function chooseWidest(track) {
+    if (framingMode() !== "widest" || !track.applyConstraints) return;
+    let caps = {}; try { caps = track.getCapabilities?.() || {}; } catch { /* ignore */ }
+    const cur = track.getSettings();
+    if (!cur.width || !cur.height || Math.abs(cur.width / cur.height - 4 / 3) < 0.02) return;
+    const maxH = caps.height?.max || 0, maxW = caps.width?.max || 0;
+    for (const [w, h] of [[1920, 1440], [1600, 1200], [1280, 960], [1024, 768]]) {
+      if (h < cur.height * 0.9 || (maxH && h > maxH) || (maxW && w > maxW)) continue;
+      try { await track.applyConstraints({ width: { exact: w }, height: { exact: h } }); const n = track.getSettings(); if (n.width / n.height > 1.3 && n.width / n.height < 1.37) return; } catch { /* mode not offered */ }
+    }
+    try { await track.applyConstraints({ width: { ideal: cur.width }, height: { ideal: cur.height } }); } catch { /* keep whatever we have */ }
+  }
+
+  // Force the widest, fixed view on PTZ cameras (Chrome exposes this only for cameras that report pan/tilt/zoom).
+  let ptzInfo = "";
+  async function lockWidest(track) {
+    ptzInfo = "fixed";
+    let caps = {}; try { caps = track.getCapabilities?.() || {}; } catch { return; }
+    const adv = {};
+    if (caps.zoom && caps.zoom.min != null) adv.zoom = caps.zoom.min;
+    if (caps.pan && caps.pan.min != null) adv.pan = (caps.pan.min + caps.pan.max) / 2;
+    if (caps.tilt && caps.tilt.min != null) adv.tilt = (caps.tilt.min + caps.tilt.max) / 2;
+    if (!Object.keys(adv).length) return;
+    ptzInfo = "adjustable" + (caps.zoom ? ", locked to widest" : "");
+    try { await track.applyConstraints({ advanced: [adv] }); } catch { /* not settable */ }
+  }
+  const relock = () => { const t = stream?.getVideoTracks()[0]; if (t) lockWidest(t).catch(() => {}); };
+  const gcd = (a, b) => (b ? gcd(b, a % b) : a);
+  function paintCamStatus() {
+    const t = stream?.getVideoTracks()[0]; if (!t) { el.camStatus.textContent = "—"; return; }
+    const st = t.getSettings(), w = st.width || video?.videoWidth, h = st.height || video?.videoHeight;
+    if (!w || !h) { el.camStatus.textContent = "—"; return; }
+    const r = w / h, ratio = Math.abs(r - 16 / 9) < 0.03 ? "16:9" : Math.abs(r - 4 / 3) < 0.03 ? "4:3" : `${w / gcd(w, h)}:${h / gcd(w, h)}`;
+    el.camStatus.textContent = `${w}×${h} · ${ratio} · ${window.I18N.t("cam.zoom")}: ${window.I18N.t(ptzInfo.startsWith("adjustable") ? "cam.locked" : "cam.fixed")}`;
   }
 
   function stopStream() {
@@ -508,6 +542,10 @@
         if (nikon && nikon.deviceId !== active) { stopStream(); return startCamera(nikon.deviceId); }
       }
       prefs.camera = el.camera.value; savePrefs();
+      const vt = stream.getVideoTracks()[0];
+      try { await chooseWidest(vt); } catch { /* keep the stream we have */ }
+      try { await lockWidest(vt); } catch { /* ignore */ }
+      vt.addEventListener("unmute", relock);
 
       video = document.createElement("video");
       video.className = "offscreen"; video.muted = true; video.playsInline = true; video.autoplay = true;
@@ -518,6 +556,8 @@
       video.srcObject = stream;
       stream.getVideoTracks()[0].addEventListener("ended", () => showCamError("err.camLost"));
       await video.play();
+      if (video.videoWidth && video.videoHeight) { prefs.ar = +(video.videoWidth / video.videoHeight).toFixed(4); savePrefs(); el.preview.parentElement.style.setProperty("--ar", String(prefs.ar)); }
+      paintCamStatus();
       loop();
       warmSegmenter();
     } catch (e) {
@@ -612,7 +652,7 @@
   function buildScene() {
     const n = shots.length;
     if (n === 1) { const s = shots[0]; scene = { W: s.raw.width, H: s.raw.height, rects: [{ x: 0, y: 0, w: s.raw.width, h: s.raw.height }], paper: false, footer: 0 }; return; }
-    const W = STRIP_W, fa = 4 / 3, footer = (el.rFrame.checked || prefs.date || prefs.time) ? 200 : 0;
+    const W = STRIP_W, fa = shots[0].raw.width / shots[0].raw.height, footer = (el.rFrame.checked || prefs.date || prefs.time) ? 200 : 0;
     const grid = n === 4 && prefs.layout === "grid";
     const rects = [];
     let H;
@@ -712,8 +752,9 @@
     el.dateChip.setAttribute("aria-pressed", String(!!prefs.date)); el.timeChip.setAttribute("aria-pressed", String(!!prefs.time));
     el.reorder.textContent = "";
     shots.forEach((sh, i) => {
-      const c = document.createElement("canvas"); c.width = 96; c.height = 72; c.dataset.i = String(i); c.className = "reo";
-      const r = { x: 0, y: 0, w: 96, h: 72 }; c.getContext("2d").drawImage(sh.raw, ...coverSrc(sh.raw, r), 0, 0, 96, 72);
+      const th = Math.round(96 * sh.raw.height / sh.raw.width), c = document.createElement("canvas"); c.width = 96; c.height = th; c.dataset.i = String(i); c.className = "reo";
+      c.style.aspectRatio = `${sh.raw.width} / ${sh.raw.height}`;
+      c.getContext("2d").drawImage(sh.raw, 0, 0, 96, th);
       el.reorder.append(c);
     });
   }
@@ -748,11 +789,24 @@
   const curMode = () => { const b = prefs.booth || "guests"; if (b === "single" || b === "strip") return b; return prefs.pick === "strip" ? "strip" : "single"; };
   const shotsN = () => [3, 4, 6].includes(+prefs.shots) ? +prefs.shots : 4;
 
+  let capToken = 0;   // bumped to abort an in-flight capture (Esc / Cancel)
+  function cancelCapture() {
+    if (state !== "countdown") return;
+    capToken++;
+    freeCapture();
+    el.countdown.hidden = true; el.flash.hidden = true; el.shotInd.hidden = true; el.capBar.hidden = true;
+    el.cdNum.textContent = ""; el.cdNum.classList.remove("tick"); clearI(el.cdSub);
+    setState("live"); el.shutter.disabled = false;
+    el.shutter.focus({ preventScroll: true });
+  }
+  el.capCancel.addEventListener("click", cancelCapture);
+
   async function takePicture() {
     if (state !== "live" || !video || !video.videoWidth) return;
     const n = curMode() === "strip" ? shotsN() : 1;
+    const tok = ++capToken, dead = () => tok !== capToken;
     freeCapture(); photoFilter = filterId;
-    setState("countdown"); el.shutter.disabled = true;
+    setState("countdown"); el.shutter.disabled = true; el.capBar.hidden = false;
     for (let i = 0; i < n; i++) {
       if (!video) break;
       if (n > 1) { setI(el.shotInd, "shot.of", { i: i + 1, n }); el.shotInd.hidden = false; }
@@ -761,14 +815,17 @@
         el.cdNum.textContent = String(c); setI(el.cdSub, `cd.${c}`);
         el.cdNum.classList.remove("tick"); void el.cdNum.offsetWidth; el.cdNum.classList.add("tick");   // retrigger pop
         await sleep(1000);
+        if (dead()) return;
       }
       el.flash.hidden = false; setTimeout(() => { el.flash.hidden = true; }, 400);
       const c = video ? grabFrame(n > 1 ? STRIP_FRAME_MAX_W : CAPTURE_MAX_W) : null;
       if (!c) break;
       shots.push({ raw: c, cut: null, status: "idle" });
       if (n > 1) addShotThumb(c);
-      if (i < n - 1) { el.cdNum.textContent = ""; clearI(el.cdSub); await sleep(500); }
+      if (i < n - 1) { el.cdNum.textContent = ""; clearI(el.cdSub); await sleep(500); if (dead()) return; }
     }
+    if (dead()) return;
+    el.capBar.hidden = true;
     el.shotInd.hidden = true;
     el.cdNum.textContent = ""; el.cdNum.classList.remove("tick"); setI(el.cdSub, "processing");
     setState("processing");
@@ -783,9 +840,9 @@
   }
 
   function addShotThumb(src) {
-    const c = document.createElement("canvas"); c.width = 96; c.height = 72;
-    const x = c.getContext("2d"), r = { x: 0, y: 0, w: 96, h: 72 };
-    x.drawImage(src, ...coverSrc(src, r), 0, 0, 96, 72);
+    const th = Math.round(96 * src.height / src.width), c = document.createElement("canvas"); c.width = 96; c.height = th;
+    c.style.aspectRatio = `${src.width} / ${src.height}`;
+    c.getContext("2d").drawImage(src, 0, 0, 96, th);
     el.shotThumbs.hidden = false; el.shotThumbs.append(c);
   }
 
@@ -924,7 +981,7 @@
           if (res.status === 429 || res.status >= 500) { if (attempt < UPLOAD_TRIES - 1) await sleep(1000 * 2 ** attempt); continue; }
           if (!res.ok) throw new Error(`upload failed (${res.status})`);
           const data = await res.json();
-          return renderQr(data.downloadUrl);
+          return renderQr(data.downloadUrl, data.id);
         } catch (e) {
           clearTimeout(to);
           if (e.message?.startsWith("upload failed") || e.message === "unauthorized") throw e;
@@ -941,12 +998,27 @@
     } finally { clearTimeout(slow); uploading = false; }
   }
 
-  function renderQr(link) {
-    // Only ever encode a link to our own origin.
-    let u; try { u = new URL(link, location.origin); } catch { u = null; }
-    if (!u || u.origin !== location.origin) { setStatus("res.invalid", false); return; }
+  // Operator-set address that phones can reach (localhost on a phone is the phone itself).
+  function qrBaseUrl() {
+    const v = String(prefs.qrBase || "").trim().replace(/\/+$/, "");
+    return /^https?:\/\/[^\s/?#]+(\/[^\s?#]*)?$/i.test(v) ? v : "";
+  }
+  const isLocalHost = (h) => /^(localhost|127\.\d+\.\d+\.\d+|0\.0\.0\.0|\[?::1\]?)$/i.test(h);
+  function renderQr(link, id) {
+    let href = "";
+    const base = qrBaseUrl();
+    if (base && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(id || "")) {
+      href = `${base}/p/${id}?download`;
+    } else {
+      // Otherwise only ever encode a link to our own origin.
+      let u; try { u = new URL(link, location.origin); } catch { u = null; }
+      if (!u || u.origin !== location.origin) { setStatus("res.invalid", false); return; }
+      href = u.href;
+    }
+    let host = ""; try { host = new URL(href).hostname; } catch { /* ignore */ }
+    el.qrWarn.hidden = !isLocalHost(host);
     const qr = window.qrcode(0, "M");   // type 0 = auto-size
-    qr.addData(u.href); qr.make();
+    qr.addData(href); qr.make();
     el.qr.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });   // SVG string from vendored lib, data is our own URL
     const svg = el.qr.querySelector("svg");
     if (svg) { svg.setAttribute("role", "img"); svg.setAttribute("data-i18n-aria", "aria.qr"); applyI(svg); }
@@ -1009,7 +1081,11 @@
     paintSliders();
     el.qrWaitSel.value = qrWait; applyScale(prefs.scale);
     el.boothMode.value = ["single", "strip"].includes(prefs.booth) ? prefs.booth : "guests";
+    el.framing.value = framingMode();
+    if (prefs.ar) el.preview.parentElement.style.setProperty("--ar", String(prefs.ar));
     el.showPrint.value = prefs.print === false ? "off" : "on"; el.printBtn.hidden = prefs.print === false;
+    el.showSettings.value = prefs.showSettings === false ? "off" : "on"; applySettingsBtn();
+    el.qrBase.value = prefs.qrBase || "";
     el.shotsSel.value = String(shotsN()); el.layoutSel.value = prefs.layout === "grid" ? "grid" : "vertical"; syncStripOptions(); syncModeUI();
   }
   function applyScale(v) {
@@ -1034,8 +1110,14 @@
   el.modeToggle.querySelectorAll("[data-mode]").forEach((b) => b.addEventListener("click", (e) => {
     prefs.pick = b.dataset.mode; savePrefs(); syncModeUI(); if (e.detail > 0) b.blur();
   }));
+  function applySettingsBtn() {
+    el.adminOpen.hidden = prefs.showSettings === false && new URLSearchParams(location.search).get("admin") !== "1";
+  }
+  el.showSettings.addEventListener("change", () => { prefs.showSettings = el.showSettings.value !== "off"; savePrefs(); applySettingsBtn(); });
+  el.qrBase.addEventListener("input", () => { prefs.qrBase = el.qrBase.value.trim(); savePrefs(); });
   el.showPrint.addEventListener("change", () => { prefs.print = el.showPrint.value !== "off"; el.printBtn.hidden = !prefs.print; savePrefs(); });
   el.printBtn.addEventListener("click", () => { resetRemain = resetTotal; window.print(); });
+  el.framing.addEventListener("change", () => { prefs.framing = el.framing.value; savePrefs(); startCamera(el.camera.value || null); });
   el.boothMode.addEventListener("change", () => { prefs.booth = el.boothMode.value; savePrefs(); syncModeUI(); });
   el.shotsSel.addEventListener("change", () => { prefs.shots = +el.shotsSel.value; syncStripOptions(); savePrefs(); });
   el.layoutSel.addEventListener("change", () => { prefs.layout = el.layoutSel.value; savePrefs(); });
@@ -1053,7 +1135,7 @@
   el.camera.addEventListener("change", () => startCamera(el.camera.value));
   el.shutter.addEventListener("click", takePicture);
   el.resetToken.addEventListener("click", () => { store.del(TOKEN_KEY); askToken({ operator: true }); });
-  navigator.mediaDevices?.addEventListener?.("devicechange", () => { if (state === "live") listCameras(el.camera.value).catch(() => {}); });
+  navigator.mediaDevices?.addEventListener?.("devicechange", () => { relock(); if (state === "live") listCameras(el.camera.value).catch(() => {}); });
 
   // language switch: static + dynamic text re-render via I18N; refresh generated option labels
   window.I18N.onChange(() => { relabelFileThumbs(); ST?.refreshLabels?.(); if (navigator.mediaDevices?.enumerateDevices && state === "live") listCameras(el.camera.value).catch(() => {}); });
@@ -1085,6 +1167,7 @@
   el.scrim.addEventListener("click", () => { if (Date.now() - openedAt > 600) closeDrawer(); });   // ignore the tap's own trailing click
   el.adminOpen.addEventListener("click", openDrawer);
   if (new URLSearchParams(location.search).get("admin") === "1") el.adminOpen.hidden = false;
+  else applySettingsBtn();
 
   // hidden hotspot: long-press 1.5s or 5 quick taps (pointer events cover touch + mouse + pen)
   (() => {
@@ -1099,11 +1182,31 @@
     el.adminHold.addEventListener("contextmenu", (e) => e.preventDefault());
   })();
 
+  // ---------- optional stickers (operator can switch groups on/off) ----------
+  function buildOptStickers() {
+    if (!ST || !ST.listOptionalGroups || !ST.setEnabledGroups) return;
+    const groups = ST.listOptionalGroups() || [];
+    el.optStk.textContent = ""; el.optStkBox.hidden = !groups.length;
+    const on = new Set(Array.isArray(prefs.optStickers) ? prefs.optStickers : []);
+    for (const g of groups) {
+      const lab = document.createElement("label"), cb = document.createElement("input"), sp = document.createElement("span");
+      cb.type = "checkbox"; cb.checked = on.has(g.group);
+      sp.textContent = (g.name && (g.name[window.I18N.getLang()] || g.name.en)) || g.group;
+      lab.append(cb, sp); el.optStk.append(lab);
+      cb.addEventListener("change", () => {
+        if (cb.checked) on.add(g.group); else on.delete(g.group);
+        prefs.optStickers = [...on]; savePrefs(); ST.setEnabledGroups(prefs.optStickers);
+      });
+    }
+    ST.setEnabledGroups([...on]);
+  }
+
   // ---------- keyboard ----------
   document.addEventListener("keydown", (e) => {
     const ae = document.activeElement, tag = ae?.tagName || "";
     const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(tag);
     if (e.key === "Escape" && drawerOpen) { e.preventDefault(); closeDrawer(); return; }
+    if (e.key === "Escape" && state === "countdown") { e.preventDefault(); cancelCapture(); return; }   // stop the photo-taking phase
     if (e.key === "Enter" && !typing && !drawerOpen && !el.tokenDialog.open) {
       if (state === "result" && tag !== "BUTTON") { e.preventDefault(); backToLive(); return; }          // Next guest
       if (state === "review" && (tag !== "BUTTON" || ae.getAttribute("role") === "radio")) { e.preventDefault(); confirmPhoto(); return; }
@@ -1153,7 +1256,7 @@
     const m = location.hash.match(/[#&]k=([^&]+)/);
     if (m) { store.set(TOKEN_KEY, decodeURIComponent(m[1])); history.replaceState(null, "", location.pathname + location.search); }
     loadPrefs(); buildGallery(); buildFilterGallery(); keepAwake(); paintKeyStatus(); loadManifest();
-    if (ST) { try { ST.init({ layer: el.stLayer, tray: el.stTray, getLang: () => window.I18N.getLang(), onchange() {} }); } catch { /* stickers unavailable */ } }
+    if (ST) { try { ST.init({ layer: el.stLayer, tray: el.stTray, getLang: () => window.I18N.getLang(), onchange() {} }); ST.load().then(buildOptStickers).catch(() => {}); window.I18N.onChange(() => { if (ST.listOptionalGroups) buildOptStickers(); }); } catch { /* stickers unavailable */ } }
     el.stBox.hidden = !ST;
     setI(el.qrText, "res.up"); el.qrDots.hidden = false;
     idleTimer = setTimeout(idleTick, 1000);

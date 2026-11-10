@@ -66,3 +66,19 @@ Drop `.jpg/.png/.webp` files in `public/backgrounds/` (see the README.txt there)
 - **Filters:** picked on the live screen; applied to the person (not the background).
 - **Stickers:** dragged onto the photo on the review screen. Built-ins are in `public/stickers/builtin/`; add your own image files to `public/stickers/` (sub-folders become category tabs; see `public/stickers/README.txt`). The list is rebuilt on every `wrangler dev` / `wrangler deploy` (or `npm run stickers`).
 - **Print:** the result screen has a Print button (hide it in the drawer).
+
+## I. Scanning the QR code with your phone (localhost does not work on a phone)
+The QR code points to the address the kiosk page was opened from. On your laptop that is `http://localhost:8787`, and on a phone "localhost" is the phone itself, so the page cannot load. Two ways to fix it:
+
+1. **Same Wi-Fi (quick test):** start the server so other devices can reach it, then tell the app your laptop's Wi-Fi address.
+   ```bash
+   npx wrangler dev --ip 0.0.0.0
+   ```
+   Find your laptop's IPv4 address (Windows: `ipconfig` → "Wi-Fi" → IPv4 Address, e.g. `192.168.1.23`). Open the drawer (settings button) → **QR link address** → type `http://192.168.1.23:8787`. Keep using `http://localhost:8787` on the kiosk itself (the camera needs it). The phone must be on the same Wi-Fi, and Windows Firewall may ask you to allow Node/workerd on private networks — choose Allow.
+2. **Deploy to Cloudflare** (Option B above): the QR then uses your public `https://…workers.dev` address automatically.
+
+If the QR address is localhost, the result screen shows a warning under the QR code.
+
+## J. Keyboard & operator quick reference
+- **Space** take a picture · **Esc** cancel while the countdown / shots are running · **Enter** confirm / next guest · **Shift+S** open settings.
+- **Optional stickers** (e.g. Tung Tung Sahur) are switched on in settings → *Optional stickers*. Drop more files into `public/stickers/optional/` and they get their own switch.

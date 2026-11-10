@@ -33,6 +33,10 @@
           <span id="cd-sub" class="cd-sub"></span>
         </div>
         <div id="flash" class="flash" hidden></div>
+        <div id="cap-bar" class="cap-bar" hidden>
+          <span data-i18n="cap.esc">Press Esc to cancel</span>
+          <button id="cap-cancel" type="button" data-i18n="cap.cancel">Cancel</button>
+        </div>
         <div id="camera-error" class="camera-error" hidden role="alert"></div>
       </div>
     </section>
@@ -108,6 +112,7 @@
       <h2 id="result-title" data-i18n="res.head.ok">Your photo is ready</h2>
       <div id="qr" class="qr" aria-live="polite"><p id="qr-status"><span id="qr-status-text" data-i18n="res.up">Preparing your download…</span><span id="qr-dots" class="dots" aria-hidden="true"><i></i><i></i><i></i></span></p></div>
       <p id="qr-hint" class="hint"></p>
+      <p id="qr-warn" class="qr-warn" role="alert" hidden data-i18n="res.localWarn">This QR only works on this computer. Set a QR link address in settings.</p>
       <div class="actions">
         <button id="again" type="button" class="primary"><span data-i18n="res.again">Next guest</span> <span aria-hidden="true">→</span></button>
         <button id="retry" type="button" class="secondary" hidden data-i18n="res.retry">Try again</button>
@@ -133,7 +138,7 @@
 
   <!-- OPERATOR ACCESS (invisible hotspot; gear only with ?admin=1) -->
   <div id="admin-hold" class="admin-hold" aria-hidden="true"></div>
-  <button id="admin-open" class="admin-open" type="button" data-i18n-aria="drawer.open" aria-label="Open operator settings" aria-controls="admin-drawer" hidden>
+  <button id="admin-open" class="admin-open" type="button" data-i18n-aria="drawer.open" aria-label="Open operator settings" aria-controls="admin-drawer">
     <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path fill="currentColor" d="M19.4 13a7.9 7.9 0 0 0 0-2l2.1-1.6a.5.5 0 0 0 .1-.6l-2-3.5a.5.5 0 0 0-.6-.2l-2.5 1a7.6 7.6 0 0 0-1.7-1l-.4-2.6a.5.5 0 0 0-.5-.4h-4a.5.5 0 0 0-.5.4L9 5.5a7.6 7.6 0 0 0-1.7 1l-2.5-1a.5.5 0 0 0-.6.2l-2 3.5a.5.5 0 0 0 .1.6L4.6 11a7.9 7.9 0 0 0 0 2l-2.1 1.6a.5.5 0 0 0-.1.6l2 3.5c.1.2.4.3.6.2l2.5-1c.5.4 1.1.7 1.7 1l.4 2.6c0 .2.3.4.5.4h4c.2 0 .5-.2.5-.4l.4-2.6c.6-.3 1.2-.6 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5a.5.5 0 0 0-.1-.6zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z"/></svg>
   </button>
 
@@ -165,6 +170,17 @@
           <option value="strip" data-i18n="drawer.bmStrip">Photo Strip only</option>
         </select>
       </label>
+      <label class="field"><span data-i18n="drawer.showSettings">Show settings button</span>
+        <select id="show-settings"><option value="on" data-i18n="drawer.on">On</option><option value="off" data-i18n="drawer.off">Off</option></select>
+      </label>
+      <label class="field"><span data-i18n="drawer.qrBase">QR link address</span>
+        <input id="qr-base" type="text" inputmode="url" maxlength="100" autocomplete="off" spellcheck="false" placeholder="http://192.168.1.23:8787" data-i18n-ph="drawer.qrBasePh">
+        <small class="note" data-i18n="drawer.qrBaseHelp">Phones cannot open localhost. Use your computer's Wi-Fi address, e.g. http://192.168.1.23:8787, and start the server with --ip 0.0.0.0 (or deploy to Cloudflare). Leave empty to use the page address.</small>
+      </label>
+      <fieldset id="opt-stk-box" class="field" hidden>
+        <legend data-i18n="drawer.optStk">Optional stickers</legend>
+        <div id="opt-stk"></div>
+      </fieldset>
       <label class="field"><span data-i18n="drawer.showPrint">Show print button</span>
         <select id="show-print"><option value="on" data-i18n="drawer.on">On</option><option value="off" data-i18n="drawer.off">Off</option></select>
       </label>
@@ -177,6 +193,16 @@
           <option value="grid" data-i18n="drawer.layoutG">2×2 grid (4 shots only)</option>
         </select>
       </label>
+
+      <label class="field"><span data-i18n="cam.framing">Camera framing</span>
+        <select id="cam-framing">
+          <option value="widest" data-i18n="cam.widest">Widest (full camera image)</option>
+          <option value="16x9" data-i18n="cam.16x9">16:9 crop</option>
+          <option value="4x3" data-i18n="cam.4x3">4:3</option>
+        </select>
+      </label>
+      <p class="note"><span data-i18n="cam.status">Camera</span>: <span id="cam-status">—</span></p>
+      <p class="note" data-i18n="cam.note">Turn off Center Stage / Automatic framing / Studio Effects in your operating system if the picture still moves or zooms. (macOS: Control Center → Video Effects. Windows: Settings → Bluetooth &amp; devices → Cameras → Windows Studio Effects → Automatic framing.)</p>
 
       <label class="field"><span data-i18n="drawer.mode">Camera mode</span>
         <select id="mode">
