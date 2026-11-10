@@ -62,7 +62,7 @@ Drop `.jpg/.png/.webp` files in `public/backgrounds/` (see the README.txt there)
 - **Mirror**, language is the EN | 中文 button on the main screen.
 
 ## H. Modes, filters and stickers
-- **Modes:** *Single* (one photo) or *Photo Booth* (a strip of 3/4/6 shots). Guests switch with the toggle on the live screen; the operator can lock one mode (drawer → Mode). Strip layout (vertical / 2×2), date/time stamps and frame colours are on the review screen.
+- **Modes:** *Single* (one photo) or *Photo Strip* (a strip of 3/4/6 shots). Guests switch with the toggle on the live screen; the operator can lock one mode (drawer → Mode). Strip layout (vertical / 2×2), date/time stamps and frame colours are on the review screen.
 - **Filters:** picked on the live screen; applied to the person (not the background).
 - **Stickers:** dragged onto the photo on the review screen. Built-ins are in `public/stickers/builtin/`; add your own image files to `public/stickers/` (sub-folders become category tabs; see `public/stickers/README.txt`). The list is rebuilt on every `wrangler dev` / `wrangler deploy` (or `npm run stickers`).
 - **Print:** the result screen has a Print button (hide it in the drawer).
