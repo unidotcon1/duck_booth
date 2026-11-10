@@ -1,0 +1,35 @@
+{
+  "version": 2,
+  "plugins": {
+    "superpowers@superpowers-marketplace": [
+      {
+        "scope": "user",
+        "installPath": "C:\\Users\\24021308\\.claude\\plugins\\cache\\superpowers-marketplace\\superpowers\\7.0.1",
+        "version": "7.0.1",
+        "installedAt": "2026-10-23T12:44:35.155Z",
+        "lastUpdated": "2026-10-23T12:44:35.155Z",
+        "gitCommitSha": "2ce8aa15d05bd57213e6f746f953aafb7ded7a8b"
+      }
+    ],
+    "frontend-design@claude-plugins-official": [
+      {
+        "scope": "user",
+        "installPath": "C:\\Users\\24021308\\.claude\\plugins\\cache\\claude-plugins-official\\frontend-design\\58267944f921",
+        "version": "58267944f921",
+        "installedAt": "2026-10-24T07:49:37.227Z",
+        "lastUpdated": "2026-10-24T07:49:37.227Z",
+        "gitCommitSha": "58267944f92187b7d6a1c822165c96c81c864806"
+      }
+    ],
+    "mattpocock-skills@claude-plugins-official": [
+      {
+        "scope": "user",
+        "installPath": "C:\\Users\\24021308\\.claude\\plugins\\cache\\claude-plugins-official\\mattpocock-skills\\1.3.1",
+        "version": "1.3.1",
+        "installedAt": "2026-10-27T13:07:42.927Z",
+        "lastUpdated": "2026-10-27T13:07:42.927Z",
+        "gitCommitSha": "49dd158d1076134a641b33efb035946536778336"
+      }
+    ]
+  }
+}
