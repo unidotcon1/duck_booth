@@ -441,6 +441,14 @@
     addSticker(d, 0.5 + (Math.random() - 0.5) * 0.12, 0.5 + (Math.random() - 0.5) * 0.12, {});
   }
 
+  function other() { return lang() === 'en' ? 'zh-CN' : 'en'; }
+  function catNameIn(c, l) { return (c.name && (c.name[l] || c.name.en)) || c.id; }
+  // Label that reserves room for both languages (invisible twin in the same grid cell) -> tabs never resize on a language switch.
+  function setTwin(node, cur, oth) {
+    var wrap = el('span', 'i18n-st' + ((cur.length > 36 || oth.length > 36) ? ' i18n-flow' : '')), a = el('span', ''), g = el('span', 'i18n-ghost');
+    a.textContent = cur; g.textContent = oth; a.lang = lang(); g.lang = other(); g.setAttribute('aria-hidden', 'true');
+    wrap.appendChild(a); wrap.appendChild(g); node.textContent = ''; node.appendChild(wrap);
+  }
   function catName(c) { var l = lang(); return (c.name && (c.name[l] || c.name.en)) || c.id; }
   function setCat(id, focus) {
     st.cat = id;
@@ -657,15 +665,15 @@
     var nh = defs.filter(function (d) { return hidden[d.id]; }).length;
 
     var head = el('div', 'stk-mgr-head');
-    var cnt = el('span', 'stk-mgr-count'); cnt.textContent = m.shown(defs.length - nh, nh); head.appendChild(cnt);
-    var sa = mbtn('stk-mgr-alt', 'showall', m.showAll); sa.disabled = nh === 0; head.appendChild(sa);
+    var m2 = STR[other()].m; var cnt = el('span', 'stk-mgr-count'); setTwin(cnt, m.shown(defs.length - nh, nh), m2.shown(defs.length - nh, nh)); head.appendChild(cnt);
+    var sa = mbtn('stk-mgr-alt', 'showall'); setTwin(sa, m.showAll, m2.showAll); sa.disabled = nh === 0; head.appendChild(sa);
     box.appendChild(head);
 
     var zone = el('div', 'stk-mgr-drop');
     var input = el('input', 'stk-mgr-file'); input.type = 'file'; input.multiple = true; input.accept = 'image/png,image/webp,image/svg+xml,image/jpeg'; input.tabIndex = -1; input.setAttribute('aria-hidden', 'true');
-    var add = mbtn('', 'add'); add.appendChild(svgIcon(['M12 5v14', 'M5 12h14'])); var at = el('span'); at.textContent = mgr.busy ? m.adding : m.add; add.appendChild(at); add.disabled = !!mgr.busy;
-    var hint = el('span', 'stk-mgr-hint'); hint.textContent = m.drop;
-    var fm = el('span', 'stk-mgr-hint stk-mgr-fmt'); fm.textContent = m.formats;
+    var add = mbtn('', 'add'); add.appendChild(svgIcon(['M12 5v14', 'M5 12h14'])); var at = el('span'); setTwin(at, mgr.busy ? m.adding : m.add, mgr.busy ? m2.adding : m2.add); add.appendChild(at); add.disabled = !!mgr.busy;
+    var hint = el('span', 'stk-mgr-hint'); setTwin(hint, m.drop, m2.drop);
+    var fm = el('span', 'stk-mgr-hint stk-mgr-fmt'); setTwin(fm, m.formats, m2.formats);
     zone.appendChild(input); zone.appendChild(add); zone.appendChild(hint); zone.appendChild(fm);
     box.appendChild(zone);
     add.addEventListener('click', function () { input.click(); });
@@ -751,7 +759,7 @@
     st.delBtn.setAttribute('aria-label', s.del); st.delBtn.title = s.del;
     st.flipBtn.setAttribute('aria-label', s.flip); st.flipBtn.title = s.flip;
     renderManager();
-    if (st.tabs) { st.tabs.setAttribute('aria-label', s.cats); st.cats.forEach(function (c) { c.btn.textContent = c.id === 'all' ? s.all : catName(c); }); }
+    if (st.tabs) { st.tabs.setAttribute('aria-label', s.cats); st.cats.forEach(function (c) { setTwin(c.btn, c.id === 'all' ? s.all : catName(c), c.id === 'all' ? STR[other()].all : catNameIn(c, other())); }); }
   }
 
   function init(o) {

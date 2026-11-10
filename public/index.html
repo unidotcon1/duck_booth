@@ -151,109 +151,158 @@
     </header>
 
     <div class="drawer-body">
-      <label class="field"><span data-i18n="drawer.qrWait">QR wait time</span>
-        <select id="qr-wait">
-          <option value="3min" data-i18n="drawer.qr3">3 minutes</option>
-          <option value="none" data-i18n="drawer.qrNone">No time limit</option>
-        </select>
-      </label>
-
-      <div class="field">
-        <label><span class="lab"><span data-i18n="drawer.scale">Text size</span> <output id="ui-scale-val">1.0×</output></span> <input id="ui-scale" type="range" min="1" max="3" step="0.1" value="1"></label>
-        <button id="ui-scale-reset" class="secondary-sm" type="button" data-i18n="drawer.scaleReset">Reset</button>
+      <div class="set-search">
+        <div class="set-search-row">
+          <svg class="set-search-ico" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zm9 16-4-4"/></svg>
+          <input id="set-search" type="search" autocomplete="off" spellcheck="false" placeholder="Search settings…" data-i18n-ph="drawer.search" data-i18n-aria="drawer.search" aria-label="Search settings">
+          <button id="set-clear" class="set-clear" type="button" hidden data-i18n-aria="drawer.clearSearch" aria-label="Clear search">&times;</button>
+        </div>
+        <div class="set-tools">
+          <button id="set-expand" class="link" type="button" data-i18n="drawer.expandAll">Expand all</button>
+          <button id="set-collapse" class="link" type="button" data-i18n="drawer.collapseAll">Collapse all</button>
+        </div>
       </div>
+      <p id="set-none" class="note set-none" role="status" hidden></p>
 
-      <label class="field"><span data-i18n="drawer.boothMode">Booth mode</span>
-        <select id="booth-mode">
-          <option value="guests" data-i18n="drawer.bmGuests">Guests choose</option>
-          <option value="single" data-i18n="drawer.bmSingle">Single only</option>
-          <option value="strip" data-i18n="drawer.bmStrip">Photo Strip only</option>
-        </select>
-      </label>
-      <label class="field"><span data-i18n="drawer.showSettings">Show settings button</span>
-        <select id="show-settings"><option value="on" data-i18n="drawer.on">On</option><option value="off" data-i18n="drawer.off">Off</option></select>
-      </label>
-      <label class="field"><span data-i18n="drawer.qrBase">QR link address</span>
-        <input id="qr-base" type="text" inputmode="url" maxlength="100" autocomplete="off" spellcheck="false" placeholder="http://192.168.1.23:8787" data-i18n-ph="drawer.qrBasePh">
-        <small class="note" data-i18n="drawer.qrBaseHelp">Phones cannot open localhost. Use your computer's Wi-Fi address, e.g. http://192.168.1.23:8787, and start the server with --ip 0.0.0.0 (or deploy to Cloudflare). Leave empty to use the page address.</small>
-      </label>
-      <section class="field stk-mgr-box" aria-labelledby="stk-mgr-title">
-        <h3 id="stk-mgr-title" class="micro" data-i18n="drawer.stkMgr">Manage stickers</h3>
-        <div id="stk-manager"></div>
-      </section>
-      <fieldset id="opt-stk-box" class="field" hidden>
-        <legend data-i18n="drawer.optStk">Optional stickers</legend>
-        <div id="opt-stk"></div>
-      </fieldset>
-      <label class="field"><span data-i18n="drawer.showPrint">Show print button</span>
-        <select id="show-print"><option value="on" data-i18n="drawer.on">On</option><option value="off" data-i18n="drawer.off">Off</option></select>
-      </label>
-      <label class="field"><span data-i18n="drawer.shots">Shots per strip</span>
-        <select id="shots-per-strip"><option value="3">3</option><option value="4">4</option><option value="6">6</option></select>
-      </label>
-      <label class="field"><span data-i18n="drawer.layout">Strip layout</span>
-        <select id="strip-layout">
-          <option value="vertical" data-i18n="drawer.layoutV">Vertical strip</option>
-          <option value="grid" data-i18n="drawer.layoutG">2×2 grid (4 shots only)</option>
-        </select>
-      </label>
-
-      <label class="field"><span data-i18n="cam.framing">Camera framing</span>
-        <select id="cam-framing">
-          <option value="widest" data-i18n="cam.widest">Widest (full camera image)</option>
-          <option value="16x9" data-i18n="cam.16x9">16:9 crop</option>
-          <option value="4x3" data-i18n="cam.4x3">4:3</option>
-        </select>
-      </label>
-      <p class="note"><span data-i18n="cam.status">Camera</span>: <span id="cam-status">—</span></p>
-      <p class="note" data-i18n="cam.note">Turn off Center Stage / Automatic framing / Studio Effects in your operating system if the picture still moves or zooms. (macOS: Control Center → Video Effects. Windows: Settings → Bluetooth &amp; devices → Cameras → Windows Studio Effects → Automatic framing.)</p>
-
-      <label class="field"><span data-i18n="drawer.mode">Camera mode</span>
-        <select id="mode">
-          <option value="test" data-i18n="drawer.modeTest">Testing — laptop webcam</option>
-          <option value="prod" data-i18n="drawer.modeProd">Production — Nikon DSLR (virtual webcam)</option>
-        </select>
-      </label>
-
-      <label class="field"><span data-i18n="drawer.camera">Camera</span>
-        <select id="camera"></select>
-      </label>
-
-      <div class="field">
-        <span class="legend" data-i18n="drawer.customBg">Custom background</span>
-        <label class="file"><span data-i18n="drawer.chooseImg">+ Choose an image</span>
-          <input id="bg-file" type="file" accept="image/jpeg,image/png,image/webp">
-        </label>
-      </div>
-
-      <label class="field"><span data-i18n="drawer.method">Cut-out method</span>
-        <select id="cutout-method">
-          <option value="auto" data-i18n="drawer.methodAuto">Auto (AI, no green screen)</option>
-          <option value="green" data-i18n="drawer.methodGreen">Green screen</option>
-        </select>
-      </label>
-
-      <details id="tuning" class="field tuning" open>
-        <summary data-i18n="drawer.tuning">Green-screen tuning</summary>
-        <label><span class="lab"><span data-i18n="drawer.strength">Key strength</span> <output id="key-strength-val">50</output></span> <input id="key-strength" type="range" min="0" max="100" value="50"></label>
-        <label><span class="lab"><span data-i18n="drawer.soft">Edge softness</span> <output id="key-soft-val">45</output></span> <input id="key-soft" type="range" min="5" max="80" value="45"></label>
-        <label><span class="lab"><span data-i18n="drawer.despill">Despill</span> <output id="key-despill-val">80</output></span> <input id="key-despill" type="range" min="0" max="100" value="80"></label>
-        <button id="key-reset" class="secondary-sm" type="button" data-i18n="drawer.resetSliders">Reset sliders</button>
+      <details class="set-sec" data-sec="general" open>
+        <summary><span data-i18n="drawer.secGeneral">General</span></summary>
+        <div class="set-body">
+          <label class="field set-item" data-kw="timeout reset wait auto 3 minutes no limit scan 等待 超时 重置 限时">
+            <span data-i18n="drawer.qrWait">QR wait time</span>
+            <select id="qr-wait">
+              <option value="3min" data-i18n="drawer.qr3">3 minutes</option>
+              <option value="none" data-i18n="drawer.qrNone">No time limit</option>
+            </select>
+          </label>
+          <div class="field set-item" data-kw="font size zoom bigger larger text scale accessibility 字体 字号 放大 文字大小">
+            <label><span class="lab"><span data-i18n="drawer.scale">Text size</span> <output id="ui-scale-val">1.0×</output></span> <input id="ui-scale" type="range" min="1" max="3" step="0.1" value="1"></label>
+            <button id="ui-scale-reset" class="secondary-sm" type="button" data-i18n="drawer.scaleReset">Reset</button>
+          </div>
+          <label class="field set-item" data-kw="gear cog hide button 齿轮 隐藏 设置按钮">
+            <span data-i18n="drawer.showSettings">Show settings button</span>
+            <select id="show-settings"><option value="on" data-i18n="drawer.on">On</option><option value="off" data-i18n="drawer.off">Off</option></select>
+          </label>
+          <label class="field set-item" data-kw="printer printing 打印 打印机">
+            <span data-i18n="drawer.showPrint">Show print button</span>
+            <select id="show-print"><option value="on" data-i18n="drawer.on">On</option><option value="off" data-i18n="drawer.off">Off</option></select>
+          </label>
+        </div>
       </details>
 
-      <fieldset class="field">
-        <legend data-i18n="drawer.frame">Event frame</legend>
-        <label class="inline"><input id="frame-on" type="checkbox"> <span data-i18n="drawer.showFrame">Show frame</span></label>
-        <input id="frame-text" type="text" maxlength="40" data-i18n-ph="drawer.eventName" placeholder="Event name" autocomplete="off">
-        <label class="file"><span data-i18n="drawer.framePng">+ Frame PNG (transparent)</span>
-          <input id="frame-file" type="file" accept="image/png">
-        </label>
-      </fieldset>
+      <details class="set-sec" data-sec="modes">
+        <summary><span data-i18n="drawer.secModes">Photo modes</span></summary>
+        <div class="set-body">
+          <label class="field set-item" data-kw="single strip photo booth lock mode 单张 照片条 模式 锁定">
+            <span data-i18n="drawer.boothMode">Booth mode</span>
+            <select id="booth-mode">
+              <option value="guests" data-i18n="drawer.bmGuests">Guests choose</option>
+              <option value="single" data-i18n="drawer.bmSingle">Single only</option>
+              <option value="strip" data-i18n="drawer.bmStrip">Photo Strip only</option>
+            </select>
+          </label>
+          <label class="field set-item" data-kw="number of photos shots count 3 4 6 张数 拍几张">
+            <span data-i18n="drawer.shots">Shots per strip</span>
+            <select id="shots-per-strip"><option value="3">3</option><option value="4">4</option><option value="6">6</option></select>
+          </label>
+          <label class="field set-item" data-kw="vertical grid 2x2 版式 竖条 方格 布局">
+            <span data-i18n="drawer.layout">Strip layout</span>
+            <select id="strip-layout">
+              <option value="vertical" data-i18n="drawer.layoutV">Vertical strip</option>
+              <option value="grid" data-i18n="drawer.layoutG">2×2 grid (4 shots only)</option>
+            </select>
+          </label>
+        </div>
+      </details>
 
-      <label class="inline field"><input id="mirror" type="checkbox"> <span data-i18n="drawer.mirror">Mirror image</span></label>
-      <p class="note" data-i18n="drawer.mirrorNote">Mirror (on for webcam, off for Nikon)</p>
-      <p id="key-status" class="note" data-i18n="drawer.keyReq">Upload key: required</p>
-      <button id="reset-token" class="link" type="button" data-i18n="drawer.resetKey">Reset upload key</button>
+      <details class="set-sec" data-sec="camera">
+        <summary><span data-i18n="drawer.secCamera">Camera</span></summary>
+        <div class="set-body">
+          <label class="field set-item" data-kw="webcam select device choose nikon 摄像头 选择 设备">
+            <span data-i18n="drawer.camera">Camera</span>
+            <select id="camera"></select>
+          </label>
+          <label class="field set-item" data-kw="testing production nikon dslr virtual webcam 测试 正式 单反">
+            <span data-i18n="drawer.mode">Camera mode</span>
+            <select id="mode">
+              <option value="test" data-i18n="drawer.modeTest">Testing — laptop webcam</option>
+              <option value="prod" data-i18n="drawer.modeProd">Production — Nikon DSLR (virtual webcam)</option>
+            </select>
+          </label>
+          <label class="field set-item" data-kw="zoom crop wide aspect ratio 16:9 4:3 field of view 取景 缩放 比例">
+            <span data-i18n="cam.framing">Camera framing</span>
+            <select id="cam-framing">
+              <option value="widest" data-i18n="cam.widest">Widest (full camera image)</option>
+              <option value="16x9" data-i18n="cam.16x9">16:9 crop</option>
+              <option value="4x3" data-i18n="cam.4x3">4:3</option>
+            </select>
+          </label>
+          <p class="note set-item" data-kw="resolution status zoom 分辨率 状态"><span data-i18n="cam.status">Camera</span>: <span id="cam-status">—</span></p>
+          <p class="note set-item" data-kw="center stage automatic framing studio effects windows macos 自动取景" data-i18n="cam.note">Turn off Center Stage / Automatic framing / Studio Effects in your operating system if the picture still moves or zooms. (macOS: Control Center → Video Effects. Windows: Settings → Bluetooth &amp; devices → Cameras → Windows Studio Effects → Automatic framing.)</p>
+          <label class="inline field set-item" data-kw="flip reverse selfie 镜像 翻转"><input id="mirror" type="checkbox"> <span data-i18n="drawer.mirror">Mirror image</span></label>
+          <p class="note set-item" data-kw="mirror nikon webcam 镜像" data-i18n="drawer.mirrorNote">Mirror (on for webcam, off for Nikon)</p>
+        </div>
+      </details>
+
+      <details class="set-sec" data-sec="backgrounds">
+        <summary><span data-i18n="drawer.secBackgrounds">Backgrounds &amp; frame</span></summary>
+        <div class="set-body">
+          <label class="field set-item" data-kw="remove background ai green screen chroma key 抠图 绿幕 去背景">
+            <span data-i18n="drawer.method">Cut-out method</span>
+            <select id="cutout-method">
+              <option value="auto" data-i18n="drawer.methodAuto">Auto (AI, no green screen)</option>
+              <option value="green" data-i18n="drawer.methodGreen">Green screen</option>
+            </select>
+          </label>
+          <details id="tuning" class="field tuning set-item" data-kw="green screen key strength edge softness despill chroma 绿幕 调节 强度 柔化" open>
+            <summary data-i18n="drawer.tuning">Green-screen tuning</summary>
+            <label><span class="lab"><span data-i18n="drawer.strength">Key strength</span> <output id="key-strength-val">50</output></span> <input id="key-strength" type="range" min="0" max="100" value="50"></label>
+            <label><span class="lab"><span data-i18n="drawer.soft">Edge softness</span> <output id="key-soft-val">45</output></span> <input id="key-soft" type="range" min="5" max="80" value="45"></label>
+            <label><span class="lab"><span data-i18n="drawer.despill">Despill</span> <output id="key-despill-val">80</output></span> <input id="key-despill" type="range" min="0" max="100" value="80"></label>
+            <button id="key-reset" class="secondary-sm" type="button" data-i18n="drawer.resetSliders">Reset sliders</button>
+          </details>
+          <div class="field set-item" data-kw="upload picture image own background 上传 自定义 背景 图片">
+            <span class="legend" data-i18n="drawer.customBg">Custom background</span>
+            <label class="file"><span data-i18n="drawer.chooseImg">+ Choose an image</span>
+              <input id="bg-file" type="file" accept="image/jpeg,image/png,image/webp">
+            </label>
+          </div>
+          <fieldset class="field set-item" data-kw="border overlay logo event name text png 相框 活动 名称 边框">
+            <legend data-i18n="drawer.frame">Event frame</legend>
+            <label class="inline"><input id="frame-on" type="checkbox"> <span data-i18n="drawer.showFrame">Show frame</span></label>
+            <input id="frame-text" type="text" maxlength="40" data-i18n-ph="drawer.eventName" placeholder="Event name" autocomplete="off">
+            <label class="file"><span data-i18n="drawer.framePng">+ Frame PNG (transparent)</span>
+              <input id="frame-file" type="file" accept="image/png">
+            </label>
+          </fieldset>
+        </div>
+      </details>
+
+      <details class="set-sec" data-sec="stickers">
+        <summary><span data-i18n="drawer.secStickers">Stickers</span></summary>
+        <div class="set-body">
+          <section class="field stk-mgr-box set-item" aria-labelledby="stk-mgr-title" data-kw="add upload delete remove hide show emoji 添加 删除 隐藏 显示 贴纸">
+            <h3 id="stk-mgr-title" class="micro" data-i18n="drawer.stkMgr">Manage stickers</h3>
+            <div id="stk-manager"></div>
+          </section>
+          <fieldset id="opt-stk-box" class="field set-item" hidden data-kw="meme tung tung sahur 梗图 可选">
+            <legend data-i18n="drawer.optStk">Optional stickers</legend>
+            <div id="opt-stk"></div>
+          </fieldset>
+        </div>
+      </details>
+
+      <details class="set-sec" data-sec="qr">
+        <summary><span data-i18n="drawer.secQr">QR code &amp; upload</span></summary>
+        <div class="set-body">
+          <label class="field set-item" data-kw="phone wifi address ip url link localhost lan 手机 网址 地址 链接 局域网">
+            <span data-i18n="drawer.qrBase">QR link address</span>
+            <input id="qr-base" type="text" inputmode="url" maxlength="100" autocomplete="off" spellcheck="false" placeholder="http://192.168.1.23:8787" data-i18n-ph="drawer.qrBasePh">
+            <small class="note" data-i18n="drawer.qrBaseHelp">Phones cannot open localhost. Use your computer's Wi-Fi address, e.g. http://192.168.1.23:8787, and start the server with --ip 0.0.0.0 (or deploy to Cloudflare). Leave empty to use the page address.</small>
+          </label>
+          <p id="key-status" class="note set-item" data-kw="upload key token password security 上传 密钥 密码" data-i18n="drawer.keyReq">Upload key: required</p>
+          <button id="reset-token" class="link set-item" type="button" data-kw="upload key token password 上传 密钥 重置" data-i18n="drawer.resetKey">Reset upload key</button>
+        </div>
+      </details>
     </div>
   </aside>
 

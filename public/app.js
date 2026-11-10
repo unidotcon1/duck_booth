@@ -1182,6 +1182,56 @@
     el.adminHold.addEventListener("contextmenu", (e) => e.preventDefault());
   })();
 
+  // ---------- settings drawer: collapsible sections + search ----------
+  (function settingsSearch() {
+    const input = document.getElementById("set-search"), clearBtn = document.getElementById("set-clear"), none = document.getElementById("set-none");
+    const secs = [...el.drawer.querySelectorAll(".set-sec")];
+    const SECS_KEY = "photobooth.drawerSections";
+    let saved = {}; try { saved = JSON.parse(store.get(SECS_KEY) || "{}") || {}; } catch { saved = {}; }
+    secs.forEach((d) => {
+      const id = d.dataset.sec;
+      if (id in saved) d.open = !!saved[id];
+      d.addEventListener("toggle", () => { if (input.value.trim()) return; saved[id] = d.open; store.set(SECS_KEY, JSON.stringify(saved)); });
+    });
+    const norm = (s) => String(s || "").toLowerCase().replace(/\s+/g, " ").trim();
+    // searchable text = what is on screen + the label in BOTH languages + hand-written keywords
+    const textOf = (root) => {
+      const keys = new Set(); if (root.dataset?.i18n) keys.add(root.dataset.i18n);
+      root.querySelectorAll("[data-i18n]").forEach((n) => keys.add(n.dataset.i18n));
+      let t = root.innerText + " " + (root.dataset.kw || "");
+      for (const k of keys) for (const l of window.I18N.langs()) t += " " + window.I18N.tl(k, l);
+      return norm(t);
+    };
+    function filter() {
+      const q = norm(input.value); clearBtn.hidden = !q;
+      let any = false;
+      secs.forEach((d) => {
+        const items = [...d.querySelectorAll(".set-item")].filter((i) => !i.parentElement.closest(".set-item"));
+        const titleHit = q && textOf(d.querySelector("summary")).includes(q);
+        let hits = 0;
+        items.forEach((i) => {
+          const ok = !q || titleHit || textOf(i).includes(q);
+          i.dataset.sf = ok ? "1" : "0";
+          if (ok && !i.hidden) hits++;
+        });
+        d.dataset.sf = !q || hits ? "1" : "0";
+        if (q && hits) { d.open = true; any = true; }
+        if (!q) { d.open = saved[d.dataset.sec] != null ? !!saved[d.dataset.sec] : d.dataset.sec === "general"; any = true; }
+      });
+      none.hidden = !(q && !any);
+      if (q && !any) window.I18N.set(none, "drawer.noMatch", { q: input.value.trim().slice(0, 40) });
+    }
+    input.addEventListener("input", filter);
+    clearBtn.addEventListener("click", () => { input.value = ""; filter(); input.focus(); });
+    input.addEventListener("keydown", (e) => { if (e.key === "Escape" && input.value) { e.preventDefault(); e.stopPropagation(); input.value = ""; filter(); } });
+    document.getElementById("set-expand").addEventListener("click", () => secs.forEach((d) => { if (d.dataset.sf !== "0") d.open = true; if (!input.value.trim()) saved[d.dataset.sec] = true; store.set(SECS_KEY, JSON.stringify(saved)); }));
+    document.getElementById("set-collapse").addEventListener("click", () => secs.forEach((d) => { d.open = false; if (!input.value.trim()) saved[d.dataset.sec] = false; store.set(SECS_KEY, JSON.stringify(saved)); }));
+    el.drawer.addEventListener("keydown", (e) => {   // "/" jumps to the search box
+      if (e.key === "/" && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || "")) { e.preventDefault(); input.focus(); }
+    });
+    window.I18N.onChange(() => { if (input.value.trim()) filter(); });   // keep results right after a language switch
+  })();
+
   // ---------- optional stickers (operator can switch groups on/off) ----------
   function buildOptStickers() {
     if (!ST || !ST.listOptionalGroups || !ST.setEnabledGroups) return;

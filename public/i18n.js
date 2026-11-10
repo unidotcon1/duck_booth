@@ -31,6 +31,9 @@
       "drawer.showSettings": "Show settings button", "drawer.qrBase": "QR link address", "drawer.qrBasePh": "http://192.168.1.23:8787",
       "drawer.qrBaseHelp": "Phones cannot open localhost. Use your computer's Wi-Fi address, e.g. http://192.168.1.23:8787, and start the server with --ip 0.0.0.0 (or deploy to Cloudflare). Leave empty to use the page address.",
       "drawer.optStk": "Optional stickers", "drawer.stkMgr": "Manage stickers",
+      "drawer.search": "Search settings…", "drawer.clearSearch": "Clear search", "drawer.expandAll": "Expand all", "drawer.collapseAll": "Collapse all",
+      "drawer.noMatch": "No settings match “{q}”.",
+      "drawer.secGeneral": "General", "drawer.secModes": "Photo modes", "drawer.secCamera": "Camera", "drawer.secBackgrounds": "Backgrounds & frame", "drawer.secStickers": "Stickers", "drawer.secQr": "QR code & upload",
       "drawer.showPrint": "Show print button", "drawer.on": "On", "drawer.off": "Off",
       "review.workingN": "Removing backgrounds {i}/{n}…",
       "review.filterLbl": "Filter",
@@ -138,6 +141,9 @@
       "drawer.showSettings": "显示设置按钮", "drawer.qrBase": "二维码网址", "drawer.qrBasePh": "http://192.168.1.23:8787",
       "drawer.qrBaseHelp": "手机无法打开 localhost。请填写电脑的 Wi-Fi 地址，例如 http://192.168.1.23:8787，并用 --ip 0.0.0.0 启动服务（或部署到 Cloudflare）。留空则使用当前页面地址。",
       "drawer.optStk": "可选贴纸", "drawer.stkMgr": "管理贴纸",
+      "drawer.search": "搜索设置…", "drawer.clearSearch": "清除搜索", "drawer.expandAll": "全部展开", "drawer.collapseAll": "全部收起",
+      "drawer.noMatch": "没有与“{q}”匹配的设置。",
+      "drawer.secGeneral": "通用", "drawer.secModes": "拍摄模式", "drawer.secCamera": "相机", "drawer.secBackgrounds": "背景与相框", "drawer.secStickers": "贴纸", "drawer.secQr": "二维码与上传",
       "drawer.showPrint": "显示打印按钮", "drawer.on": "开", "drawer.off": "关",
       "review.workingN": "正在抠图 {i}/{n}…",
       "review.filterLbl": "滤镜",
@@ -235,7 +241,28 @@
     return raw(key).replace(/\{(\w+)\}/g, (m, k) => (vars && k in vars && !(vars[k] instanceof Node) ? String(vars[k]) : m));
   }
 
+  // Layout-stable labels: a short label reserves room for BOTH languages (the other language is an
+  // invisible twin stacked in the same grid cell), so switching EN <-> 中文 never moves or resizes anything.
+  const STABLE_MAX = 36;
+  const otherLang = () => (lang === "en" ? "zh-CN" : "en");
+  const rawIn = (l, key) => (DICT[l] && DICT[l][key]) ?? DICT.en[key] ?? key;
+  const fillIn = (l, key, vars) => rawIn(l, key).replace(/\{(\w+)\}/g, (m, k) => (vars && k in vars ? String(vars[k]) : m));
+  function renderStable(node) {
+    const vars = node._i18nVars, key = node.dataset.i18n;
+    if (vars && Object.values(vars).some((v) => v instanceof Node)) return false;
+    if (node.tagName === "OPTION" || node.tagName === "TITLE" || node.hasAttribute("data-i18n-flow")) return false;
+    const a = fillIn(lang, key, vars), o = fillIn(otherLang(), key, vars);
+    if (a === o || /[{}]/.test(a + o)) return false;
+    const long = a.length > STABLE_MAX || o.length > STABLE_MAX;   // long text wraps; the taller language sets the height
+    const wrap = document.createElement("span"), cur = document.createElement("span"), ghost = document.createElement("span");
+    wrap.className = long ? "i18n-st i18n-flow" : "i18n-st"; ghost.className = "i18n-ghost"; ghost.setAttribute("aria-hidden", "true");
+    cur.textContent = a; ghost.textContent = o; cur.lang = lang; ghost.lang = otherLang();
+    wrap.append(cur, ghost); node.replaceChildren(wrap);
+    return true;
+  }
+
   function render(node) {
+    if (renderStable(node)) return;
     const vars = node._i18nVars;
     const parts = raw(node.dataset.i18n).split(/(\{\w+\})/);
     const frag = document.createDocumentFragment();
@@ -280,5 +307,5 @@
   document.querySelectorAll("#lang-toggle [data-lang]").forEach((b) =>
     b.addEventListener("click", (e) => { setLang(b.dataset.lang); if (e.detail > 0) b.blur(); }));
 
-  window.I18N = { t, set, clear, apply, setLang, getLang: () => lang, onChange: (f) => listeners.push(f) };
+  window.I18N = { t, tl: (key, l) => rawIn(l, key), langs: () => Object.keys(DICT), set, clear, apply, setLang, getLang: () => lang, onChange: (f) => listeners.push(f) };
 })();
