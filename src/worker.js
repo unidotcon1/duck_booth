@@ -30,6 +30,8 @@ function sniffType(b) {
   return null;
 }
 
+const keyRequired = (env) => typeof env.KIOSK_TOKEN === "string" && env.KIOSK_TOKEN.length > 0;
+
 // Constant-time-ish compare via SHA-256 digests (no length leak).
 async function tokenOk(provided, expected) {
   if (!expected || !provided) return false;
@@ -70,10 +72,15 @@ async function handleUpload(request, env) {
   const origin = request.headers.get("Origin");
   if (origin && origin !== new URL(request.url).origin) return json({ error: "forbidden_origin" }, 403);
 
-  // Auth: shared kiosk token (secret). Without it, anyone on the internet could fill R2.
-  const auth = request.headers.get("Authorization") || "";
-  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-  if (!(await tokenOk(token, env.KIOSK_TOKEN))) return json({ error: "unauthorized" }, 401);
+  // Auth: OPTIONAL shared kiosk token. The switch lives only on the server:
+  //   ON  = a KIOSK_TOKEN secret exists   (wrangler secret put KIOSK_TOKEN)
+  //   OFF = no KIOSK_TOKEN secret         (wrangler secret delete KIOSK_TOKEN)
+  // When OFF, anyone who knows the URL can upload — rate limit, size cap and type checks still apply.
+  if (keyRequired(env)) {
+    const auth = request.headers.get("Authorization") || "";
+    const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+    if (!(await tokenOk(token, env.KIOSK_TOKEN))) return json({ error: "unauthorized" }, 401);
+  }
 
   // Throttle (per client IP). Fails open only if the binding is absent (local dev).
   if (env.UPLOAD_LIMITER) {
@@ -121,10 +128,20 @@ async function loadPhoto(env, id) {
 
 const notFound = () => new Response("Not found", { status: 404, headers: { "Cache-Control": "no-store", ...SECURITY_HEADERS } });
 
-function landingPage(id, ttlDays) {
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
+const LANDING_I18N = {
+  en: { lang: "en", title: "Your photo", alt: "Your photo booth picture", btn: "Download photo",
+        note: (d) => `On iPhone: press and hold the photo, then “Add to Photos”. Link expires in ${d} days.` },
+  zh: { lang: "zh-CN", title: "你的照片", alt: "你的照片", btn: "下载照片",
+        note: (d) => `iPhone：长按照片，选择“添加到照片”。链接将在 ${d} 天后失效。` },
+};
+
+function landingPage(id, ttlDays, request) {
+  const q = new URL(request.url).searchParams.get("lang");
+  const al = request.headers.get("Accept-Language") || "";
+  const L = LANDING_I18N[q === "zh" || q === "en" ? q : /^\s*zh/i.test(al) ? "zh" : "en"];
+  const html = `<!doctype html><html lang="${L.lang}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
-<title>Your photo</title>
+<title>${L.title}</title>
 <style>
 :root{color-scheme:light dark;--bg:#fff;--fg:#14141a;--ac:#6d4aff}
 @media(prefers-color-scheme:dark){:root{--bg:#0f0f14;--fg:#f2f2f7}}
@@ -134,9 +151,9 @@ img{width:100%;height:auto;border-radius:12px;display:block;box-shadow:0 8px 30p
 a.btn{display:inline-block;margin-top:16px;padding:14px 28px;border-radius:999px;background:var(--ac);color:#fff;text-decoration:none;font-weight:600}
 p{opacity:.7;font-size:14px}
 </style></head><body><main>
-<img src="/p/${id}/raw" alt="Your photo booth picture">
-<a class="btn" href="/p/${id}?download" download>Download photo</a>
-<p>On iPhone: press and hold the photo, then “Add to Photos”. Link expires in ${ttlDays} days.</p>
+<img src="/p/${id}/raw" alt="${L.alt}">
+<a class="btn" href="/p/${id}?download" download>${L.btn}</a>
+<p>${L.note(ttlDays)}</p>
 </main></body></html>`;
   return new Response(html, {
     headers: {
@@ -159,7 +176,7 @@ async function handleShare(request, env, url) {
   const wantsDownload = url.searchParams.has("download");
   if (!raw && !wantsDownload) {
     obj.body?.cancel();
-    return landingPage(id, Number(env.PHOTO_TTL_DAYS) || 30);
+    return landingPage(id, Number(env.PHOTO_TTL_DAYS) || 30, request);
   }
   const type = obj.httpMetadata?.contentType === "image/png" ? "image/png" : "image/jpeg";
   const ext = type === "image/png" ? "png" : "jpg";
@@ -179,6 +196,7 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     try {
+      if (url.pathname === "/api/config") return json({ keyRequired: keyRequired(env) });
       if (url.pathname === "/api/upload") return await handleUpload(request, env);
       if (url.pathname.startsWith("/p/")) return await handleShare(request, env, url);
       if (url.pathname.startsWith("/api/")) return json({ error: "not_found" }, 404);
