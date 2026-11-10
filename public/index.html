@@ -41,7 +41,10 @@
       </div>
     </section>
 
-    <div id="filter-gallery" class="gallery filter-gallery" role="radiogroup" data-i18n-aria="filter.aria" aria-label="Filter"></div>
+    <div class="filter-col">
+      <div id="filter-gallery" class="gallery filter-gallery" role="radiogroup" data-i18n-aria="filter.aria" aria-label="Filter"></div>
+      <p id="filter-name" class="gallery-name" aria-live="polite"></p>
+    </div>
 
     <div class="shutter-bar">
       <button id="shutter" class="shutter" type="button" data-i18n="shutter">Take a picture</button>
@@ -65,6 +68,7 @@
       <h2 data-i18n="review.title">Choose a background</h2>
       <div class="review-scroll">
       <div id="review-gallery" class="gallery review-gallery" role="radiogroup" data-i18n-aria="aria.bg" aria-label="Background"></div>
+      <p id="review-bg-name" class="gallery-name" aria-live="polite"></p>
       <p class="micro filter-readout"><span data-i18n="review.filterLbl">Filter</span>: <span id="review-filter-name" data-i18n="f.none">Original</span></p>
       <div id="strip-tools" class="strip-tools" hidden>
         <div id="layout-chips" class="chips" role="group" data-i18n-aria="strip.layout">

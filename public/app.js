@@ -172,6 +172,39 @@
     syncGallery();
   }
   // roving tabindex: only the checked radio is in the tab order
+  // Background grid: always several columns and 2–6 rows (extra items scroll after 6 rows).
+  // Column count adapts to how many backgrounds there are and how wide the panel is.
+  const GRID_MIN_ROWS = 2, GRID_MAX_ROWS = 6;
+  function layoutGrid(g) {
+    const items = [...g.children].filter((b) => b.tagName === "BUTTON");
+    const n = items.length; if (!n || !g.clientWidth) return;
+    const cs = getComputedStyle(g), gap = parseFloat(cs.columnGap) || 16;
+    const thumb = items[0].getBoundingClientRect().width || 56;
+    const inner = g.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
+    const maxCols = Math.max(2, Math.floor((inner + gap) / (thumb + gap)));
+    const rows = Math.min(GRID_MAX_ROWS, Math.max(GRID_MIN_ROWS, Math.ceil(n / maxCols)));
+    const cols = Math.max(2, Math.min(maxCols, Math.ceil(n / rows)));
+    g.style.gridTemplateColumns = `repeat(${cols}, ${thumb}px)`;
+    const pad = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+    g.style.maxHeight = `${GRID_MAX_ROWS * thumb + (GRID_MAX_ROWS - 1) * gap + pad + 12}px`;   // 6 rows, then scroll
+    g.style.overflowY = Math.ceil(n / cols) > GRID_MAX_ROWS ? "auto" : "hidden";
+  }
+  (function watchGrid() {
+    const g = el.rGallery; let raf = 0;
+    const go = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => layoutGrid(g)); };
+    if (window.ResizeObserver) new ResizeObserver(go).observe(g);
+    new MutationObserver(go).observe(g, { childList: true });
+    window.addEventListener("resize", go);
+  })();
+
+  // The thumbnails have no visible labels (even grid); the selected one's name is shown once under the grid.
+  function selName(g) { const b = [...g.children].find((x) => x.getAttribute("aria-checked") === "true"); return b ? (b.getAttribute("aria-label") || b.title || "") : ""; }
+  function updateNames() {
+    const a = document.getElementById("review-bg-name"), f = document.getElementById("filter-name");
+    if (a) a.textContent = selName(el.rGallery);
+    if (f) f.textContent = selName(el.fGallery);
+  }
+  window.I18N.onChange(() => updateNames());
   function syncGallery() {
     for (const g of GALLERIES) {
       const items = [...g.children];
@@ -182,6 +215,7 @@
         b.tabIndex = on || (!any && i === 0) ? 0 : -1;
       });
     }
+    updateNames();
   }
   function selectBg(id) {
     bgId = id; removeOn = false; prefs.bg = id; savePrefs(); syncGallery();
@@ -397,6 +431,7 @@
       const on = b.dataset.id === filterId;
       b.setAttribute("aria-checked", String(on)); b.tabIndex = on ? 0 : -1;
     });
+    updateNames();
   }
   function selectFilter(id) { filterId = id; prefs.filter = id; savePrefs(); syncFilterGallery(); }
   // Static chip swatches: one sample picture per chip, drawn once (no camera, no timers).

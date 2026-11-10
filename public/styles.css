@@ -433,3 +433,19 @@ mark.sf{background:#ffe08a;color:inherit;border-radius:3px;padding:0 1px}
 .i18n-st.i18n-flow{display:grid;white-space:normal}
 .drawer-body>*{flex:none}
 .set-sec{flex:none;overflow:hidden}
+
+/* ---------- even thumbnail grids (no labels; selected name under the grid) + one spacing scale ---------- */
+.review-gallery .lbl,.filter-gallery .lbl{display:none}
+.review-gallery{display:grid;grid-template-columns:repeat(auto-fill,var(--thumb));justify-content:center;align-content:start;gap:var(--s4);padding:var(--s4) var(--s3)}
+.review-gallery button,.filter-gallery button{width:var(--thumb);min-width:0}
+.gallery-name{margin:0;min-height:1.4em;text-align:center;font-size:calc(var(--ui-scale) * 15px);font-weight:600;letter-spacing:.04em;color:var(--ink)}
+.filter-col{display:flex;flex-direction:column;align-items:center;gap:var(--s2);min-width:0;min-height:0}
+@media (min-width:1000px) and (min-height:501px){
+  .filter-col{grid-column:2;grid-row:1;justify-content:center;padding-top:60px;padding-bottom:var(--s2)}
+  .filter-gallery{grid-column:auto;grid-row:auto;padding:var(--s2) var(--s3);gap:var(--s4);--thumb:clamp(64px,9.2vh,104px);flex:0 1 auto;min-height:0}
+}
+.review-scroll{gap:var(--s4)}
+.review-side{gap:var(--s2)}
+.review-gallery{width:100%;align-self:stretch}
+.i18n-st{white-space:normal}
+.i18n-st>span{overflow-wrap:break-word}
