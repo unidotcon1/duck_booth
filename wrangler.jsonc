@@ -12,6 +12,9 @@
     "run_worker_first": ["/api/*", "/p/*"]
   },
 
+  // Regenerates public/backgrounds/manifest.json from the image files in that folder.
+  "build": { "command": "node scripts/build-backgrounds.mjs" },
+
   "r2_buckets": [
     { "binding": "PHOTOS", "bucket_name": "photo-booth-photos" }
   ],
