@@ -26,7 +26,8 @@
     cdNum: $("cd-num"), cdSub: $("cd-sub"),
     resetNote: $("reset-note"), resetRing: $("reset-ring"), againSec: $("again-sec"),
     drawer: $("admin-drawer"), scrim: $("admin-scrim"), adminClose: $("admin-close"),
-    adminHold: $("admin-hold"), adminOpen: $("admin-open"),
+    adminHold: $("admin-hold"), adminOpen: $("admin-open"), adminPeek: $("admin-peek"), keyReset: $("key-reset"),
+    tokenErr: $("token-err"), tokenGuest: $("token-guest"), tokenOp: $("token-op"), tokenCancel: $("token-cancel"),
     tokenDialog: $("token-dialog"), tokenForm: $("token-form"), tokenInput: $("token-input"),
   };
 
@@ -60,8 +61,8 @@
 
   // ---------- backgrounds ----------
   const BACKGROUNDS = [
-    { id: "raw", short: "Plain", label: "No keying", type: "raw" },
-    { id: "transparent", short: "Clear", label: "Transparent (PNG)", type: "transparent" },
+    { id: "raw", short: "No effect", label: "No keying", type: "raw" },
+    { id: "transparent", short: "See-through", label: "Transparent (PNG)", type: "transparent" },
     { id: "gradient-sunset", short: "Sunset", label: "Sunset", type: "gradient", stops: ["#ff7e5f", "#feb47b", "#7f53ac"] },
     { id: "gradient-ocean", short: "Ocean", label: "Ocean", type: "gradient", stops: ["#00c6ff", "#0072ff", "#0b0b3b"] },
     { id: "gradient-neon", short: "Neon", label: "Neon", type: "gradient", stops: ["#f72585", "#7209b7", "#3a0ca3", "#4cc9f0"] },
@@ -367,7 +368,7 @@
 
   function showResult(blob) {
     setState("result");
-    stopReset(); el.qr.classList.remove("ok", "fail");
+    stopReset(); el.qr.classList.remove("ok", "fail"); heading.textContent = HEAD_OK;
     if (resultUrl) URL.revokeObjectURL(resultUrl);
     resultUrl = URL.createObjectURL(blob);
     el.img.src = resultUrl;
@@ -377,6 +378,38 @@
   }
 
   // ---------- upload ----------
+  function setStatus(text, dots) {
+    el.qrStatus.textContent = text;
+    if (dots) {
+      const d = document.createElement("span"); d.className = "dots"; d.setAttribute("aria-hidden", "true");
+      d.append(document.createElement("i"), document.createElement("i"), document.createElement("i"));
+      el.qrStatus.append(d);
+    }
+  }
+  function getToken() { return store.get(TOKEN_KEY); }
+
+  // opts.operator: opened from the drawer (shows setup jargon); opts.rejected: previous key got a 401
+  function askToken({ operator = false, rejected = false } = {}) {
+    return new Promise((resolve) => {
+      el.tokenInput.value = "";
+      el.tokenErr.hidden = !rejected; el.tokenOp.hidden = !operator; el.tokenGuest.hidden = operator;
+      const ac = new AbortController();
+      const finish = (v) => { ac.abort(); if (el.tokenDialog.open) el.tokenDialog.close(); resolve(v); };
+      const o = { signal: ac.signal };
+      el.tokenForm.addEventListener("submit", () => {
+        const v = el.tokenInput.value.trim(); if (v) store.set(TOKEN_KEY, v); finish(v);
+      }, o);
+      el.tokenDialog.addEventListener("cancel", (e) => { e.preventDefault(); finish(""); }, o);
+      el.tokenCancel.addEventListener("click", () => finish(""), o);
+      if (!el.tokenDialog.open) el.tokenDialog.showModal();
+    });
+  }
+
+  // upload progress copy ("Still trying…") and attempt cap
+  const UPLOAD_TRIES = 3;
+  const heading = el.result.querySelector("h2");
+  const HEAD_OK = "Scan to grab your photo", HEAD_FAIL = "Almost there";
+
   function setStatus(text, dots) {
     el.qrStatus.textContent = text;
     if (dots) {
@@ -401,26 +434,28 @@
   async function upload(blob) {
     if (uploading) return;
     uploading = true; el.retry.hidden = true; stopReset(); el.qr.classList.remove("ok", "fail");
+    heading.textContent = HEAD_OK;
     setStatus("Waddling your photo to the cloud…", true); el.qrHint.textContent = "";
+    const slow = setTimeout(() => { if (uploading) setStatus("Still trying…", true); }, 6000);
     try {
       let token = getToken() || (await askToken());
-      for (let attempt = 0; attempt < 4; attempt++) {
-        const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 30000);
+      for (let attempt = 0; attempt < UPLOAD_TRIES; attempt++) {
+        const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 10000);
         try {
           const res = await fetch("/api/upload", {
             method: "POST", body: blob, signal: ctl.signal, credentials: "omit", cache: "no-store",
             headers: { "Content-Type": blob.type, Authorization: `Bearer ${token}` },
           });
           clearTimeout(to);
-          if (res.status === 401) { store.del(TOKEN_KEY); token = await askToken(); if (!token) throw new Error("unauthorized"); continue; }
-          if (res.status === 429 || res.status >= 500) { await sleep(1000 * 2 ** attempt); continue; }
+          if (res.status === 401) { store.del(TOKEN_KEY); token = await askToken({ rejected: true }); if (!token) throw new Error("unauthorized"); continue; }
+          if (res.status === 429 || res.status >= 500) { if (attempt < UPLOAD_TRIES - 1) await sleep(1000 * 2 ** attempt); continue; }
           if (!res.ok) throw new Error(`upload failed (${res.status})`);
           const data = await res.json();
           return renderQr(data.downloadUrl);
         } catch (e) {
           clearTimeout(to);
           if (e.message?.startsWith("upload failed") || e.message === "unauthorized") throw e;
-          await sleep(1000 * 2 ** attempt);   // network error / timeout → retry
+          if (attempt < UPLOAD_TRIES - 1) await sleep(1000 * 2 ** attempt);   // network error / timeout → retry
         }
       }
       throw new Error("network");
@@ -428,8 +463,9 @@
       setStatus("Quack! Upload hiccup", false);
       el.qr.classList.remove("fail"); void el.qr.offsetWidth; el.qr.classList.add("fail");   // retrigger shake
       el.qrHint.textContent = e.message === "unauthorized" ? "The duck needs the kiosk key. Ask a host." : "Your photo is safe right here. Check the Wi-Fi and give it another waddle.";
-      el.retry.hidden = false;
-    } finally { uploading = false; }
+      el.retry.hidden = false; heading.textContent = HEAD_FAIL;
+      uploading = false; startReset(FAIL_RESET_MS);   // photo is safe on screen; free the kiosk for the next guest
+    } finally { clearTimeout(slow); uploading = false; }
   }
 
   function renderQr(link) {
@@ -441,23 +477,25 @@
     el.qr.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });   // SVG string from vendored lib, data is our own URL
     const svg = el.qr.querySelector("svg");
     if (svg) { svg.setAttribute("role", "img"); svg.setAttribute("aria-label", "QR code to download your photo"); }
-    const hop = document.createElement("span"); hop.className = "hop"; hop.setAttribute("aria-hidden", "true"); hop.textContent = "🦆";
-    el.qr.append(hop); el.qr.classList.add("ok");
+    const hop = document.createElement("span"); hop.className = "hop"; hop.setAttribute("aria-hidden", "true"); 
+    const logo = document.querySelector(".brand .logo"); if (logo) hop.append(logo.cloneNode(true));
+    const cap = document.createElement("span"); cap.className = "qr-cap"; cap.setAttribute("aria-hidden", "true"); cap.textContent = "↑ Point your phone camera here";
+    el.qr.append(hop, cap); el.qr.classList.add("ok");
     el.qrHint.textContent = "Fresh out of the pond. Point your phone camera at the code.";
     startReset();
   }
 
   // ---------- auto-reset (result screen) ----------
-  const RESET_MS = 45 * 1000;
-  let resetTimer = 0, resetRemain = RESET_MS, resetLast = 0;
+  const RESET_MS = 45 * 1000, FAIL_RESET_MS = 30 * 1000;
+  let resetTotal = RESET_MS, resetTimer = 0, resetRemain = RESET_MS, resetLast = 0;
   const RING_LEN = 2 * Math.PI * 15;
   function paintReset() {
     el.againSec.textContent = String(Math.max(0, Math.ceil(resetRemain / 1000)));
     const bar = el.resetRing.querySelector(".bar");
-    if (bar) bar.style.strokeDashoffset = String(RING_LEN * (1 - resetRemain / RESET_MS));
+    if (bar) bar.style.strokeDashoffset = String(RING_LEN * (1 - resetRemain / resetTotal));
   }
-  function startReset() {
-    stopReset(); resetRemain = RESET_MS; resetLast = Date.now(); paintReset(); el.resetNote.hidden = false;
+  function startReset(total = RESET_MS) {
+    stopReset(); resetTotal = total; resetRemain = total; resetLast = Date.now(); paintReset(); el.resetNote.hidden = false;
     resetTimer = setInterval(() => {
       const now = Date.now(), dt = now - resetLast; resetLast = now;
       if (uploading || state !== "result") return;   // paused while uploading / failed
@@ -466,7 +504,7 @@
     }, 250);
   }
   function stopReset() { clearInterval(resetTimer); resetTimer = 0; el.resetNote.hidden = true; }
-  el.result.addEventListener("pointerdown", () => { if (resetTimer) { resetRemain = RESET_MS; paintReset(); } }, { passive: true });
+  el.result.addEventListener("pointerdown", () => { if (resetTimer) { resetRemain = resetTotal; paintReset(); } }, { passive: true });
 
   el.retry.addEventListener("click", () => lastBlob && upload(lastBlob));
 
@@ -486,12 +524,22 @@
     if (prefs.strength) el.strength.value = prefs.strength;
     if (prefs.soft) el.soft.value = prefs.soft;
     if (prefs.despill) el.despill.value = prefs.despill;
+    ["strength", "soft", "despill"].forEach((k, i) => { $(["key-strength-val", "key-soft-val", "key-despill-val"][i]).textContent = el[k].value; });
   }
   [el.mirror, el.frameOn, el.frameText, el.strength, el.soft, el.despill].forEach((n) => n.addEventListener("input", syncPrefs));
   el.mode.addEventListener("change", () => { el.mirror.checked = el.mode.value === "test"; syncPrefs(); startCamera(null); });
   el.camera.addEventListener("change", () => startCamera(el.camera.value));
   el.shutter.addEventListener("click", takePicture);
-  el.resetToken.addEventListener("click", () => { store.del(TOKEN_KEY); askToken(); });
+  el.resetToken.addEventListener("click", () => { store.del(TOKEN_KEY); askToken({ operator: true }); });
+
+  // slider readouts + reset to defaults
+  const SLIDERS = [[el.strength, "key-strength-val", 50], [el.soft, "key-soft-val", 45], [el.despill, "key-despill-val", 80]];
+  const paintSliders = () => SLIDERS.forEach(([n, id]) => { $(id).textContent = n.value; });
+  SLIDERS.forEach(([n]) => n.addEventListener("input", paintSliders));
+  el.keyReset.addEventListener("click", () => {
+    SLIDERS.forEach(([n, , d]) => { n.value = String(d); });
+    paintSliders(); syncPrefs();
+  });
   navigator.mediaDevices?.addEventListener?.("devicechange", () => { if (state === "live") listCameras(el.camera.value).catch(() => {}); });
 
   document.addEventListener("keydown", (e) => {
@@ -502,25 +550,30 @@
 
   // ---------- operator drawer ----------
   let drawerOpen = false;
-  let returnFocus = null;
+  let returnFocus = null, openedAt = 0;
   function openDrawer() {
     if (drawerOpen || state !== "live") return;
-    drawerOpen = true; returnFocus = document.activeElement;
+    drawerOpen = true; openedAt = Date.now(); returnFocus = document.activeElement;
     el.drawer.inert = false; el.drawer.classList.add("open"); el.scrim.classList.add("open");
     el.live.inert = true;
     bump(); el.adminClose.focus();
   }
   function closeDrawer() {
     if (!drawerOpen) return;
-    drawerOpen = false;
+    drawerOpen = false; setPeek(false);
     el.drawer.classList.remove("open"); el.scrim.classList.remove("open");
     el.drawer.inert = true; el.live.inert = false;
     bump();
     const t = returnFocus && document.contains(returnFocus) && !returnFocus.disabled ? returnFocus : el.shutter;
     (t.disabled ? document.body : t).focus?.();
   }
+  function setPeek(on) {
+    el.drawer.classList.toggle("peek", on); el.scrim.classList.toggle("peek", on);
+    el.adminPeek.setAttribute("aria-pressed", String(on)); el.adminPeek.textContent = on ? "Back to settings" : "Peek";
+  }
+  el.adminPeek.addEventListener("click", () => setPeek(!el.drawer.classList.contains("peek")));
   el.adminClose.addEventListener("click", closeDrawer);
-  el.scrim.addEventListener("click", closeDrawer);
+  el.scrim.addEventListener("click", () => { if (Date.now() - openedAt > 600) closeDrawer(); });   // ignore the tap's own trailing click
   el.adminOpen.addEventListener("click", openDrawer);
   if (new URLSearchParams(location.search).get("admin") === "1") el.adminOpen.hidden = false;
 

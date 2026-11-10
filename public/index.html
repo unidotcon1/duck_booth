@@ -50,7 +50,7 @@
       <div id="qr" class="qr" aria-live="polite"><p id="qr-status">Waddling your photo to the cloud…<span class="dots" aria-hidden="true"><i></i><i></i><i></i></span></p></div>
       <p id="qr-hint" class="hint"></p>
       <div class="actions">
-        <button id="again" type="button" class="primary">Next flock!</button>
+        <button id="again" type="button" class="primary"><span aria-hidden="true">✓</span> Next flock!</button>
         <button id="retry" type="button" class="secondary" hidden>Try again</button>
       </div>
       <p id="reset-note" class="reset-note" hidden>
@@ -75,6 +75,7 @@
   <aside id="admin-drawer" class="drawer" role="dialog" aria-modal="true" aria-labelledby="admin-title" inert>
     <header class="drawer-head">
       <h2 id="admin-title">Operator settings</h2>
+      <button id="admin-peek" class="peek-btn" type="button" aria-pressed="false">Peek</button>
       <button id="admin-close" class="close" type="button" aria-label="Close settings">&times;</button>
     </header>
 
@@ -99,9 +100,10 @@
 
       <details class="field tuning" open>
         <summary>Green-screen tuning</summary>
-        <label>Key strength <input id="key-strength" type="range" min="0" max="100" value="50"></label>
-        <label>Edge softness <input id="key-soft" type="range" min="5" max="80" value="45"></label>
-        <label>Despill <input id="key-despill" type="range" min="0" max="100" value="80"></label>
+        <label><span class="lab">Key strength <output id="key-strength-val">50</output></span> <input id="key-strength" type="range" min="0" max="100" value="50"></label>
+        <label><span class="lab">Edge softness <output id="key-soft-val">45</output></span> <input id="key-soft" type="range" min="5" max="80" value="45"></label>
+        <label><span class="lab">Despill <output id="key-despill-val">80</output></span> <input id="key-despill" type="range" min="0" max="100" value="80"></label>
+        <button id="key-reset" class="secondary-sm" type="button">Reset sliders</button>
       </details>
 
       <fieldset class="field">
@@ -114,6 +116,7 @@
       </fieldset>
 
       <label class="inline field"><input id="mirror" type="checkbox"> Mirror image</label>
+      <p class="note">Mirror (on for webcam, off for Nikon)</p>
       <button id="reset-token" class="link" type="button">Reset kiosk key</button>
     </div>
   </aside>
@@ -121,9 +124,15 @@
   <dialog id="token-dialog">
     <form method="dialog" id="token-form">
       <h2>Kiosk key required</h2>
-      <p>Paste the key set with <code>wrangler secret put KIOSK_TOKEN</code>. It is stored only on this device.</p>
+      <p id="token-err" class="token-err" role="alert" hidden>That key didn't work. Try again.</p>
+      <p id="token-guest">The duck needs the kiosk key. Ask a host for help.</p>
+      <p id="token-op" hidden>Paste the key set with <code>wrangler secret put KIOSK_TOKEN</code>. It is stored only on this device.</p>
+      <p class="note">Operator access: hold the top-right corner 1.5s, or add <code>?admin=1</code> to the address.</p>
       <input id="token-input" type="password" autocomplete="off" required>
-      <button class="primary" type="submit">Save</button>
+      <div class="dlg-actions">
+        <button id="token-cancel" class="secondary-sm" type="button">Cancel</button>
+        <button class="primary" type="submit">Save</button>
+      </div>
     </form>
   </dialog>
 
