@@ -5,31 +5,41 @@
   // ---------- config ----------
   const IDLE_MS = 3 * 60 * 1000;
   const IDLE_WARN_MS = 20 * 1000;
-  const PREVIEW_W = 640;            // keying runs at this width for speed
+  const PREVIEW_W = 640;            // live keying runs at this width for speed
   const CAPTURE_MAX_W = 1920;       // full-res capture cap
+  const REVIEW_MAX_W = 1280;        // review canvas backing size
   const MAX_UPLOAD = 5 * 1024 * 1024;
   const COUNTDOWN_SEC = 3;
+  const UPLOAD_TRIES = 3;
+  const RESET_MS = 45 * 1000, FAIL_RESET_MS = 30 * 1000;
   const TOKEN_KEY = "photobuth.kioskToken";
   const PREFS_KEY = "photobuth.prefs";
 
+  const { t, set: setI, clear: clearI, apply: applyI } = window.I18N;
   const $ = (id) => document.getElementById(id);
   const el = {
-    live: $("screen-live"), result: $("screen-result"), preview: $("preview"),
+    live: $("screen-live"), review: $("screen-review"), result: $("screen-result"), preview: $("preview"),
     shutter: $("shutter"), countdown: $("countdown"), flash: $("flash"), camErr: $("camera-error"),
-    mode: $("mode"), camera: $("camera"), gallery: $("bg-gallery"), bgFile: $("bg-file"),
+    mode: $("mode"), camera: $("camera"), gallery: $("bg-gallery"), rGallery: $("review-gallery"), bgFile: $("bg-file"),
     strength: $("key-strength"), soft: $("key-soft"), despill: $("key-despill"),
     frameOn: $("frame-on"), frameText: $("frame-text"), frameFile: $("frame-file"), mirror: $("mirror"),
-    resetToken: $("reset-token"),
-    img: $("result-img"), qr: $("qr"), qrStatus: $("qr-status"), qrHint: $("qr-hint"),
+    resetToken: $("reset-token"), keyStatus: $("key-status"),
+    rCanvas: $("review-canvas"), rFrame: $("review-frame"), rFrameWrap: $("review-frame-wrap"), rErr: $("review-err"),
+    confirm: $("confirm"), retake: $("retake"),
+    img: $("result-img"), heading: $("result-title"), qr: $("qr"), qrStatus: $("qr-status"), qrText: $("qr-status-text"), qrDots: $("qr-dots"), qrHint: $("qr-hint"),
     retry: $("retry"), again: $("again"),
-    idleWarn: $("idle-warning"), idleSec: $("idle-sec"),
+    idleWarn: $("idle-warning"), idleText: $("idle-text"),
     cdNum: $("cd-num"), cdSub: $("cd-sub"),
-    resetNote: $("reset-note"), resetRing: $("reset-ring"), againSec: $("again-sec"),
+    resetNote: $("reset-note"), resetText: $("reset-text"), resetRing: $("reset-ring"),
     drawer: $("admin-drawer"), scrim: $("admin-scrim"), adminClose: $("admin-close"),
     adminHold: $("admin-hold"), adminOpen: $("admin-open"), adminPeek: $("admin-peek"), keyReset: $("key-reset"),
     tokenErr: $("token-err"), tokenGuest: $("token-guest"), tokenOp: $("token-op"), tokenCancel: $("token-cancel"),
     tokenDialog: $("token-dialog"), tokenForm: $("token-form"), tokenInput: $("token-input"),
   };
+
+  // live counters are created here (i18n renders the surrounding sentence around them)
+  const mkB = (id, txt) => { const b = document.createElement("b"); b.id = id; b.textContent = txt; return b; };
+  el.againSec = mkB("again-sec", "45"); el.idleSec = mkB("idle-sec", "20");
 
   // ---------- safe storage ----------
   const store = {
@@ -41,7 +51,7 @@
   const savePrefs = () => store.set(PREFS_KEY, JSON.stringify(prefs));
 
   // ---------- state ----------
-  let state = "live"; // live | countdown | processing | result
+  let state = "live"; // live | countdown | processing | review | result
   let stream = null;
   let video = null;
   let rafId = 0;
@@ -52,23 +62,32 @@
   let resultUrl = null;     // object URL for result <img>
   let lastBlob = null;
   let uploading = false;
+  let confirming = false;
+  let drawerOpen = false;
   const setState = (s) => { state = s; document.body.dataset.state = s; };
+  const showScreen = (which) => { el.live.hidden = which !== "live"; el.review.hidden = which !== "review"; el.result.hidden = which !== "result"; };
 
   // work canvases (reused → no per-frame allocation)
   const work = document.createElement("canvas");
   const workCtx = work.getContext("2d", { willReadFrequently: true });
   const pctx = el.preview.getContext("2d");
+  // captured photo (full-res): raw frame + keyed cut-out. Freed on retake / confirm.
+  const capRaw = document.createElement("canvas");
+  const capCut = document.createElement("canvas");
+  let hasCap = false, capW = 0, capH = 0;
+  const rctx = el.rCanvas.getContext("2d");
 
   // ---------- backgrounds ----------
   const BACKGROUNDS = [
-    { id: "raw", short: "No effect", label: "No keying", type: "raw" },
-    { id: "transparent", short: "See-through", label: "Transparent (PNG)", type: "transparent" },
-    { id: "gradient-sunset", short: "Sunset", label: "Sunset", type: "gradient", stops: ["#ff7e5f", "#feb47b", "#7f53ac"] },
-    { id: "gradient-ocean", short: "Ocean", label: "Ocean", type: "gradient", stops: ["#00c6ff", "#0072ff", "#0b0b3b"] },
-    { id: "gradient-neon", short: "Neon", label: "Neon", type: "gradient", stops: ["#f72585", "#7209b7", "#3a0ca3", "#4cc9f0"] },
-    { id: "solid-dark", short: "Studio", label: "Studio dark", type: "solid", color: "#15151f" },
-    { id: "solid-white", short: "White", label: "White", type: "solid", color: "#ffffff" },
+    { id: "raw", k: "bg.raw", type: "raw" },
+    { id: "transparent", k: "bg.transparent", type: "transparent" },
+    { id: "gradient-sunset", k: "bg.sunset", type: "gradient", stops: ["#ff7e5f", "#feb47b", "#7f53ac"] },
+    { id: "gradient-ocean", k: "bg.ocean", type: "gradient", stops: ["#00c6ff", "#0072ff", "#0b0b3b"] },
+    { id: "gradient-neon", k: "bg.neon", type: "gradient", stops: ["#f72585", "#7209b7", "#3a0ca3", "#4cc9f0"] },
+    { id: "solid-dark", k: "bg.studio", type: "solid", color: "#15151f" },
+    { id: "solid-white", k: "bg.white", type: "solid", color: "#ffffff" },
   ];
+  const GALLERIES = [el.gallery, el.rGallery];
 
   function drawChecker(ctx, w, h) {
     const s = Math.max(8, Math.round(w / 40));
@@ -102,44 +121,60 @@
     return BACKGROUNDS.find((b) => b.id === bgId) || BACKGROUNDS[2];
   }
 
-  function makeThumb(id, label, short) {
+  function paintThumb(c, bg) {
+    const x = c.getContext("2d");
+    if (bg.type === "raw") {   // "original photo": neutral metal tile with a lens mark
+      const g = x.createLinearGradient(0, 0, 64, 64); g.addColorStop(0, "#a3a8af"); g.addColorStop(1, "#6d737b");
+      x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+      x.strokeStyle = "#fff"; x.lineWidth = 3; x.beginPath(); x.arc(32, 32, 13, 0, Math.PI * 2); x.stroke();
+      x.fillStyle = "#fff"; x.beginPath(); x.arc(32, 32, 4, 0, Math.PI * 2); x.fill();
+    } else drawBackground(x, 64, 64, bg, false);
+  }
+
+  function makeThumb(id, k) {
     const btn = document.createElement("button");
-    btn.type = "button"; btn.setAttribute("role", "radio"); btn.title = label;
-    btn.setAttribute("aria-label", label); btn.dataset.id = id;
+    btn.type = "button"; btn.setAttribute("role", "radio"); btn.dataset.id = id;
+    btn.setAttribute("data-i18n-aria", k); btn.setAttribute("data-i18n-title", k);
     const c = document.createElement("canvas"); c.width = 64; c.height = 64;
     const chk = document.createElement("span"); chk.className = "chk"; chk.setAttribute("aria-hidden", "true"); chk.textContent = "✓";
-    const lbl = document.createElement("span"); lbl.className = "lbl"; lbl.setAttribute("aria-hidden", "true"); lbl.textContent = short;
+    const lbl = document.createElement("span"); lbl.className = "lbl"; lbl.setAttribute("aria-hidden", "true"); lbl.dataset.i18n = k;
     btn.append(c, chk, lbl);
-    btn.addEventListener("click", () => selectBg(id));
+    btn.addEventListener("click", (e) => { selectBg(id); if (e.detail > 0) btn.blur(); });   // pointer click: let Space reach the shutter
+    applyI(btn);
     return btn;
   }
 
   function buildGallery() {
-    el.gallery.textContent = "";
-    for (const bg of BACKGROUNDS) {
-      const btn = makeThumb(bg.id, bg.label, bg.short || bg.label);
-      const c = btn.firstChild;
-      drawBackground(c.getContext("2d"), 64, 64, bg, false);
-      if (bg.type === "raw") { const x = c.getContext("2d"); x.fillStyle = "#fff"; x.font = "28px sans-serif"; x.textAlign = "center"; x.fillText("🎥", 32, 42); }
-      el.gallery.append(btn);
+    for (const g of GALLERIES) {
+      g.textContent = "";
+      for (const bg of BACKGROUNDS) {
+        const btn = makeThumb(bg.id, bg.k);
+        paintThumb(btn.firstChild, bg);
+        g.append(btn);
+      }
     }
     syncGallery();
   }
   // roving tabindex: only the checked radio is in the tab order
   function syncGallery() {
-    const items = [...el.gallery.children];
-    const any = items.some((b) => b.dataset.id === bgId);
-    items.forEach((b, i) => {
-      const on = b.dataset.id === bgId;
-      b.setAttribute("aria-checked", String(on));
-      b.tabIndex = on || (!any && i === 0) ? 0 : -1;
-    });
+    for (const g of GALLERIES) {
+      const items = [...g.children];
+      const any = items.some((b) => b.dataset.id === bgId);
+      items.forEach((b, i) => {
+        const on = b.dataset.id === bgId;
+        b.setAttribute("aria-checked", String(on));
+        b.tabIndex = on || (!any && i === 0) ? 0 : -1;
+      });
+    }
   }
-  function selectBg(id) { bgId = id; prefs.bg = id; savePrefs(); syncGallery(); }
+  function selectBg(id) {
+    bgId = id; prefs.bg = id; savePrefs(); syncGallery();
+    if (state === "review" && hasCap) paintReview();   // instant re-composite at preview size
+  }
 
-  el.gallery.addEventListener("keydown", (e) => {
+  GALLERIES.forEach((g) => g.addEventListener("keydown", (e) => {
     const keys = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
-    const items = [...el.gallery.children];
+    const items = [...g.children];
     let i = items.indexOf(document.activeElement);
     if (i < 0) return;
     if (e.key === "Home") i = 0; else if (e.key === "End") i = items.length - 1;
@@ -148,7 +183,7 @@
     e.preventDefault();
     selectBg(items[i].dataset.id); items[i].focus();
     items[i].scrollIntoView({ block: "nearest", inline: "center" });
-  });
+  }));
 
   el.bgFile.addEventListener("change", async () => {
     const f = el.bgFile.files?.[0]; el.bgFile.value = "";
@@ -157,9 +192,11 @@
       const bmp = await createImageBitmap(f);
       customBg?.img.close();         // free GPU/CPU memory of the previous one
       customBg = { img: bmp };
-      let btn = el.gallery.querySelector('[data-id="custom"]');
-      if (!btn) { btn = makeThumb("custom", "Custom background", "Mine"); el.gallery.append(btn); }
-      btn.firstChild.getContext("2d").drawImage(bmp, 0, 0, 64, 64);
+      for (const g of GALLERIES) {
+        let btn = g.querySelector('[data-id="custom"]');
+        if (!btn) { btn = makeThumb("custom", "bg.custom"); g.append(btn); }
+        btn.firstChild.getContext("2d").drawImage(bmp, 0, 0, 64, 64);
+      }
       selectBg("custom");
     } catch { /* unreadable image → ignore */ }
   });
@@ -171,8 +208,8 @@
     try { customFrame?.close(); customFrame = await createImageBitmap(f); el.frameOn.checked = true; syncPrefs(); } catch { /* ignore */ }
   });
 
-  function drawFrame(ctx, w, h) {
-    if (!el.frameOn.checked) return;
+  function drawFrame(ctx, w, h, on) {
+    if (!on) return;
     if (customFrame) { ctx.drawImage(customFrame, 0, 0, w, h); return; }
     const b = Math.round(Math.min(w, h) * 0.035);
     ctx.save();
@@ -181,7 +218,7 @@
     const text = el.frameText.value.trim();
     if (text) {
       const fs = Math.round(h * 0.055);
-      ctx.font = `700 ${fs}px system-ui, sans-serif`;
+      ctx.font = `700 ${fs}px system-ui, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif`;
       ctx.textAlign = "center"; ctx.textBaseline = "middle";
       const bandH = fs * 1.7;
       ctx.fillStyle = "#000a"; ctx.fillRect(0, h - bandH - b, w, bandH);
@@ -203,15 +240,15 @@
       const m = r > b ? r : b;
       const dom = g - m;
       if (dom <= 0) continue;                       // not greenish: keep
-      let t = (dom - lo) / span;
-      if (t >= 1) { d[i + 3] = 0; continue; }
-      if (t > 0) { d[i + 3] = (255 * (1 - t * t * (3 - 2 * t))) | 0; }
+      let tt = (dom - lo) / span;
+      if (tt >= 1) { d[i + 3] = 0; continue; }
+      if (tt > 0) { d[i + 3] = (255 * (1 - tt * tt * (3 - 2 * tt))) | 0; }
       d[i + 1] = g - dom * sp;                      // despill: pull green toward max(r,b)
     }
   }
 
-  // Render keyed subject of the current video frame into `target` canvas.
-  function renderFrame(ctx, w, h, { forExport }) {
+  // Live preview: render keyed subject of the current video frame.
+  function renderFrame(ctx, w, h) {
     const bg = currentBg();
     const mirror = el.mirror.checked;
     const vw = video.videoWidth, vh = video.videoHeight;
@@ -223,7 +260,7 @@
       ctx.drawImage(video, 0, 0, w, h);
       ctx.restore();
     } else {
-      const sw = forExport ? w : Math.min(PREVIEW_W, w), sh = Math.round(sw * h / w);
+      const sw = Math.min(PREVIEW_W, w), sh = Math.round(sw * h / w);
       if (work.width !== sw || work.height !== sh) { work.width = sw; work.height = sh; }
       workCtx.save();
       workCtx.clearRect(0, 0, sw, sh);
@@ -233,15 +270,18 @@
       const data = workCtx.getImageData(0, 0, sw, sh);
       chromaKey(data, +el.strength.value, +el.soft.value, +el.despill.value);
       workCtx.putImageData(data, 0, 0);
-      drawBackground(ctx, w, h, bg, forExport);
+      drawBackground(ctx, w, h, bg, false);
       ctx.drawImage(work, 0, 0, w, h);
     }
-    drawFrame(ctx, w, h);
+    drawFrame(ctx, w, h, el.frameOn.checked);
     return true;
   }
 
   // ---------- camera ----------
-  function showCamError(msg) { el.camErr.textContent = msg; el.camErr.hidden = !msg; el.shutter.disabled = !!msg; }
+  function showCamError(key, vars) {
+    if (key) { setI(el.camErr, key, vars); el.camErr.hidden = false; el.shutter.disabled = true; }
+    else { clearI(el.camErr); el.camErr.hidden = true; el.shutter.disabled = false; }
+  }
 
   function constraintsFor(deviceId) {
     const prod = el.mode.value === "prod";
@@ -257,7 +297,7 @@
 
   function stopStream() {
     cancelAnimationFrame(rafId); rafId = 0;
-    if (stream) { stream.getTracks().forEach((t) => t.stop()); stream = null; }
+    if (stream) { stream.getTracks().forEach((tr) => tr.stop()); stream = null; }
     if (video) { video.srcObject = null; video.remove(); video = null; }
   }
 
@@ -266,7 +306,7 @@
     el.camera.textContent = "";
     devices.forEach((d, i) => {
       const o = document.createElement("option");
-      o.value = d.deviceId; o.textContent = d.label || `Camera ${i + 1}`;
+      o.value = d.deviceId; o.textContent = d.label || t("camera.n", { n: i + 1 });
       el.camera.append(o);
     });
     if (selectedId && devices.some((d) => d.deviceId === selectedId)) el.camera.value = selectedId;
@@ -276,9 +316,7 @@
   async function startCamera(deviceId) {
     stopStream();
     showCamError("");
-    if (!navigator.mediaDevices?.getUserMedia) {
-      return showCamError("Camera API unavailable. Open this page over HTTPS (or localhost).");
-    }
+    if (!navigator.mediaDevices?.getUserMedia) return showCamError("err.camApi");
     try {
       try { stream = await navigator.mediaDevices.getUserMedia(constraintsFor(deviceId)); }
       catch (e) {
@@ -302,90 +340,157 @@
       Object.assign(video.style, { position: "fixed", width: "1px", height: "1px", opacity: "0", pointerEvents: "none", left: "0", top: "0" });
       document.body.append(video);
       video.srcObject = stream;
-      stream.getVideoTracks()[0].addEventListener("ended", () => showCamError("Camera disconnected. Reconnect it and press any key."));
+      stream.getVideoTracks()[0].addEventListener("ended", () => showCamError("err.camLost"));
       await video.play();
       loop();
     } catch (e) {
-      const map = {
-        NotAllowedError: "Camera permission denied. Allow camera access in the browser and reload.",
-        NotFoundError: "No camera found. Connect a webcam or the Nikon virtual-webcam utility.",
-        NotReadableError: "Camera is busy (used by another app?). Close it and reload.",
-      };
-      showCamError(map[e.name] || `Camera error: ${e.message || e.name}`);
+      const map = { NotAllowedError: "err.camDenied", NotFoundError: "err.camNotFound", NotReadableError: "err.camBusy" };
+      if (map[e.name]) showCamError(map[e.name]); else showCamError("err.camGeneric", { m: e.message || e.name });
     }
   }
 
   function loop(ts = 0) {
     rafId = requestAnimationFrame(loop);
-    if (document.hidden || state === "result" || state === "processing" || !video) return;
+    if (document.hidden || state === "result" || state === "review" || state === "processing" || !video) return;
     if (ts - lastFrame < 33) return;   // ~30 fps cap
     lastFrame = ts;
     const vw = video.videoWidth, vh = video.videoHeight;
     if (!vw || !vh) return;
     const pw = Math.min(vw, 960), ph = Math.round(pw * vh / vw);
     if (el.preview.width !== pw || el.preview.height !== ph) { el.preview.width = pw; el.preview.height = ph; el.preview.parentElement.style.setProperty("--ar", String(pw / ph)); }
-    renderFrame(pctx, pw, ph, { forExport: false });
+    renderFrame(pctx, pw, ph);
   }
 
   // ---------- capture ----------
-  const COUNT_SUBS = ["Big grin…", "Chin up…", "Get cozy…"];   // indexed by n-1
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  function freeCapture() {
+    capRaw.width = capRaw.height = 0; capCut.width = capCut.height = 0;   // release backing stores
+    hasCap = false;
+  }
+
+  // Grab the current frame at full resolution: raw (mirrored if on) + keyed cut-out with alpha.
+  function captureFrame() {
+    const vw = video.videoWidth, vh = video.videoHeight;
+    if (!vw || !vh) return false;
+    capW = Math.min(vw, CAPTURE_MAX_W); capH = Math.round(capW * vh / vw);
+    capRaw.width = capCut.width = capW; capRaw.height = capCut.height = capH;
+    const rc = capRaw.getContext("2d");
+    rc.save();
+    if (el.mirror.checked) { rc.translate(capW, 0); rc.scale(-1, 1); }
+    rc.drawImage(video, 0, 0, capW, capH);
+    rc.restore();
+    const cc = capCut.getContext("2d", { willReadFrequently: true });
+    cc.clearRect(0, 0, capW, capH);
+    cc.drawImage(capRaw, 0, 0);
+    const data = cc.getImageData(0, 0, capW, capH);
+    chromaKey(data, +el.strength.value, +el.soft.value, +el.despill.value);
+    cc.putImageData(data, 0, 0);
+    hasCap = true;
+    return true;
+  }
+
+  function compose(ctx, w, h, forExport, withFrame) {
+    const bg = currentBg();
+    if (bg.type === "raw") ctx.drawImage(capRaw, 0, 0, w, h);
+    else { drawBackground(ctx, w, h, bg, forExport); ctx.drawImage(capCut, 0, 0, w, h); }
+    drawFrame(ctx, w, h, withFrame);
+  }
+
+  function paintReview() { compose(rctx, el.rCanvas.width, el.rCanvas.height, false, el.rFrame.checked); }
 
   async function takePicture() {
     if (state !== "live" || !video || !video.videoWidth) return;
     setState("countdown"); el.shutter.disabled = true;
     for (let n = COUNTDOWN_SEC; n > 0; n--) {
       el.countdown.hidden = false;
-      el.cdNum.textContent = String(n); el.cdSub.textContent = COUNT_SUBS[n - 1] || "";
+      el.cdNum.textContent = String(n); setI(el.cdSub, `cd.${n}`);
       el.cdNum.classList.remove("tick"); void el.cdNum.offsetWidth; el.cdNum.classList.add("tick");   // retrigger pop
       await sleep(1000);
     }
-    el.flash.textContent = "Smile!"; el.flash.hidden = false;
-    setTimeout(() => { el.flash.hidden = true; el.flash.textContent = ""; }, 400);
-    el.cdNum.textContent = ""; el.cdNum.classList.remove("tick"); el.cdSub.textContent = "Developing…";
+    el.flash.hidden = false; setTimeout(() => { el.flash.hidden = true; }, 400);
+    el.cdNum.textContent = ""; el.cdNum.classList.remove("tick"); setI(el.cdSub, "processing");
     setState("processing");
+    await sleep(30);   // let the "Processing…" frame paint before the heavy work
 
-    const blob = await renderToBlob(1);
+    let ok = false;
+    try { ok = !!video && captureFrame(); } catch { ok = false; }
     el.countdown.hidden = true;
-    if (!blob) { setState("live"); el.shutter.disabled = false; return showCamError("Could not create the photo. Try again."); }
+    if (!ok) {
+      freeCapture(); setState("live"); el.shutter.disabled = false;
+      return showCamError("err.create");
+    }
+    showReview();
+  }
+
+  function showReview() {
+    const rw = Math.min(capW, REVIEW_MAX_W), rh = Math.round(rw * capH / capW);
+    el.rCanvas.width = rw; el.rCanvas.height = rh; el.rCanvas.style.setProperty("--ar", String(rw / rh));
+    const frameShown = el.frameOn.checked;
+    el.rFrame.checked = frameShown; el.rFrameWrap.hidden = !frameShown;
+    el.rErr.hidden = true; el.confirm.disabled = el.retake.disabled = false;
+    paintReview();
+    showScreen("review"); setState("review");
+    el.confirm.focus({ preventScroll: true });
+  }
+
+  function retake() {
+    if (state !== "review" || confirming) return;
+    freeCapture();
+    const c = el.rCanvas; c.width = c.height = 0;
+    showScreen("live"); setState("live");
+    el.shutter.disabled = !el.camErr.hidden;
+    el.shutter.focus({ preventScroll: true });
+  }
+
+  async function exportBlob(scale) {
+    const w = Math.max(2, Math.round(capW * scale)), h = Math.round(w * capH / capW);
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    compose(c.getContext("2d"), w, h, true, el.rFrame.checked);
+    const png = currentBg().type === "transparent";
+    const blob = await new Promise((res) => c.toBlob(res, png ? "image/png" : "image/jpeg", 0.9));
+    c.width = c.height = 0;           // release backing store immediately (Safari canvas memory cap)
+    if (blob && blob.size > MAX_UPLOAD && scale > 0.4) return exportBlob(scale * 0.7);
+    return blob;
+  }
+
+  async function confirmPhoto() {
+    if (state !== "review" || confirming || !hasCap) return;
+    confirming = true; el.confirm.disabled = el.retake.disabled = true; el.rErr.hidden = true;
+    let blob = null;
+    try { blob = await exportBlob(1); } catch { blob = null; }
+    confirming = false;
+    if (!blob) { el.confirm.disabled = el.retake.disabled = false; el.rErr.hidden = false; return; }
     lastBlob = blob;
+    freeCapture();
     showResult(blob);
     upload(blob);
   }
 
-  async function renderToBlob(scale) {
-    const vw = video.videoWidth, vh = video.videoHeight;
-    const w = Math.round(Math.min(vw, CAPTURE_MAX_W) * scale), h = Math.round(w * vh / vw);
-    const c = document.createElement("canvas"); c.width = w; c.height = h;
-    const ctx = c.getContext("2d");
-    if (!renderFrame(ctx, w, h, { forExport: true })) return null;
-    const png = currentBg().type === "transparent";
-    const blob = await new Promise((res) => c.toBlob(res, png ? "image/png" : "image/jpeg", 0.9));
-    c.width = c.height = 0;           // release backing store immediately (Safari canvas memory cap)
-    if (blob && blob.size > MAX_UPLOAD && scale > 0.4) return renderToBlob(scale * 0.7);
-    return blob;
-  }
-
   function showResult(blob) {
     setState("result");
-    stopReset(); el.qr.classList.remove("ok", "fail"); heading.textContent = HEAD_OK;
+    stopReset(); el.qr.classList.remove("ok", "fail"); setI(el.heading, "res.head.ok");
     if (resultUrl) URL.revokeObjectURL(resultUrl);
     resultUrl = URL.createObjectURL(blob);
-    el.img.src = resultUrl;
-    el.qr.textContent = ""; el.qr.append(el.qrStatus); setStatus("Waddling your photo to the cloud…", true);
-    el.qrHint.textContent = ""; el.retry.hidden = true;
-    el.live.hidden = true; el.result.hidden = false;
+    el.img.removeAttribute("src"); void el.img.offsetWidth; el.img.src = resultUrl;   // restart the slide-out
+    el.qr.textContent = ""; el.qr.append(el.qrStatus); setStatus("res.up", true);
+    clearI(el.qrHint); el.retry.hidden = true;
+    showScreen("result");
   }
 
   // ---------- upload ----------
-  function setStatus(text, dots) {
-    el.qrStatus.textContent = text;
-    if (dots) {
-      const d = document.createElement("span"); d.className = "dots"; d.setAttribute("aria-hidden", "true");
-      d.append(document.createElement("i"), document.createElement("i"), document.createElement("i"));
-      el.qrStatus.append(d);
-    }
+  let keyRequired = true;   // server decides (GET /api/config); assume required if unknown
+  const configReady = fetch("/api/config", { cache: "no-store" })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((j) => { if (j && j.keyRequired === false) keyRequired = false; })
+    .catch(() => { /* keep required */ })
+    .then(() => paintKeyStatus());
+  function paintKeyStatus() {
+    setI(el.keyStatus, keyRequired ? "drawer.keyReq" : "drawer.keyNot");
+    el.resetToken.hidden = !keyRequired;
   }
+
+  function setStatus(key, dots) { setI(el.qrText, key); el.qrDots.hidden = !dots; }
   function getToken() { return store.get(TOKEN_KEY); }
 
   // opts.operator: opened from the drawer (shows setup jargon); opts.rejected: previous key got a 401
@@ -405,49 +510,26 @@
     });
   }
 
-  // upload progress copy ("Still trying…") and attempt cap
-  const UPLOAD_TRIES = 3;
-  const heading = el.result.querySelector("h2");
-  const HEAD_OK = "Scan to grab your photo", HEAD_FAIL = "Almost there";
-
-  function setStatus(text, dots) {
-    el.qrStatus.textContent = text;
-    if (dots) {
-      const d = document.createElement("span"); d.className = "dots"; d.setAttribute("aria-hidden", "true");
-      d.append(document.createElement("i"), document.createElement("i"), document.createElement("i"));
-      el.qrStatus.append(d);
-    }
-  }
-  function getToken() { return store.get(TOKEN_KEY); }
-
-  function askToken() {
-    return new Promise((resolve) => {
-      el.tokenInput.value = "";
-      el.tokenForm.addEventListener("submit", () => {
-        const v = el.tokenInput.value.trim(); if (v) store.set(TOKEN_KEY, v); resolve(v);
-      }, { once: true });
-      el.tokenDialog.addEventListener("cancel", () => resolve(""), { once: true });
-      if (!el.tokenDialog.open) el.tokenDialog.showModal();
-    });
-  }
-
   async function upload(blob) {
     if (uploading) return;
     uploading = true; el.retry.hidden = true; stopReset(); el.qr.classList.remove("ok", "fail");
-    heading.textContent = HEAD_OK;
-    setStatus("Waddling your photo to the cloud…", true); el.qrHint.textContent = "";
-    const slow = setTimeout(() => { if (uploading) setStatus("Still trying…", true); }, 6000);
+    setI(el.heading, "res.head.ok"); setStatus("res.up", true); clearI(el.qrHint);
+    const slow = setTimeout(() => { if (uploading) setStatus("res.slow", true); }, 6000);
     try {
-      let token = getToken() || (await askToken());
+      await configReady;
+      let token = "";
+      if (keyRequired) { token = getToken() || (await askToken()); if (!token) throw new Error("unauthorized"); }
       for (let attempt = 0; attempt < UPLOAD_TRIES; attempt++) {
         const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 10000);
         try {
-          const res = await fetch("/api/upload", {
-            method: "POST", body: blob, signal: ctl.signal, credentials: "omit", cache: "no-store",
-            headers: { "Content-Type": blob.type, Authorization: `Bearer ${token}` },
-          });
+          const headers = { "Content-Type": blob.type };
+          if (keyRequired) headers.Authorization = `Bearer ${token}`;
+          const res = await fetch("/api/upload", { method: "POST", body: blob, signal: ctl.signal, credentials: "omit", cache: "no-store", headers });
           clearTimeout(to);
-          if (res.status === 401) { store.del(TOKEN_KEY); token = await askToken({ rejected: true }); if (!token) throw new Error("unauthorized"); continue; }
+          if (res.status === 401) {
+            if (!keyRequired) throw new Error("unauthorized");
+            store.del(TOKEN_KEY); token = await askToken({ rejected: true }); if (!token) throw new Error("unauthorized"); continue;
+          }
           if (res.status === 429 || res.status >= 500) { if (attempt < UPLOAD_TRIES - 1) await sleep(1000 * 2 ** attempt); continue; }
           if (!res.ok) throw new Error(`upload failed (${res.status})`);
           const data = await res.json();
@@ -460,10 +542,10 @@
       }
       throw new Error("network");
     } catch (e) {
-      setStatus("Quack! Upload hiccup", false);
-      el.qr.classList.remove("fail"); void el.qr.offsetWidth; el.qr.classList.add("fail");   // retrigger shake
-      el.qrHint.textContent = e.message === "unauthorized" ? "The duck needs the kiosk key. Ask a host." : "Your photo is safe right here. Check the Wi-Fi and give it another waddle.";
-      el.retry.hidden = false; heading.textContent = HEAD_FAIL;
+      setStatus("res.fail", false);
+      el.qr.classList.remove("fail"); void el.qr.offsetWidth; el.qr.classList.add("fail");
+      setI(el.qrHint, e.message === "unauthorized" ? "res.hint.unauth" : "res.hint.fail");
+      el.retry.hidden = false; setI(el.heading, "res.head.fail");
       uploading = false; startReset(FAIL_RESET_MS);   // photo is safe on screen; free the kiosk for the next guest
     } finally { clearTimeout(slow); uploading = false; }
   }
@@ -471,24 +553,24 @@
   function renderQr(link) {
     // Only ever encode a link to our own origin.
     let u; try { u = new URL(link, location.origin); } catch { u = null; }
-    if (!u || u.origin !== location.origin) { el.qrStatus.textContent = "Invalid link"; return; }
+    if (!u || u.origin !== location.origin) { setStatus("res.invalid", false); return; }
     const qr = window.qrcode(0, "M");   // type 0 = auto-size
     qr.addData(u.href); qr.make();
     el.qr.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });   // SVG string from vendored lib, data is our own URL
     const svg = el.qr.querySelector("svg");
-    if (svg) { svg.setAttribute("role", "img"); svg.setAttribute("aria-label", "QR code to download your photo"); }
-    const hop = document.createElement("span"); hop.className = "hop"; hop.setAttribute("aria-hidden", "true"); 
-    const logo = document.querySelector(".brand .logo"); if (logo) hop.append(logo.cloneNode(true));
-    const cap = document.createElement("span"); cap.className = "qr-cap"; cap.setAttribute("aria-hidden", "true"); cap.textContent = "↑ Point your phone camera here";
-    el.qr.append(hop, cap); el.qr.classList.add("ok");
-    el.qrHint.textContent = "Fresh out of the pond. Point your phone camera at the code.";
+    if (svg) { svg.setAttribute("role", "img"); svg.setAttribute("data-i18n-aria", "aria.qr"); applyI(svg); }
+    const badge = document.createElement("span"); badge.className = "hop"; badge.setAttribute("aria-hidden", "true");
+    badge.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" focusable="false"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    el.qr.append(badge); el.qr.classList.add("ok");
+    setI(el.qrHint, "res.hint.ok");
     startReset();
   }
 
   // ---------- auto-reset (result screen) ----------
-  const RESET_MS = 45 * 1000, FAIL_RESET_MS = 30 * 1000;
   let resetTotal = RESET_MS, resetTimer = 0, resetRemain = RESET_MS, resetLast = 0;
   const RING_LEN = 2 * Math.PI * 15;
+  setI(el.resetText, "res.reset", { s: el.againSec });
+  setI(el.idleText, "idle", { s: el.idleSec });
   function paintReset() {
     el.againSec.textContent = String(Math.max(0, Math.ceil(resetRemain / 1000)));
     const bar = el.resetRing.querySelector(".bar");
@@ -498,7 +580,7 @@
     stopReset(); resetTotal = total; resetRemain = total; resetLast = Date.now(); paintReset(); el.resetNote.hidden = false;
     resetTimer = setInterval(() => {
       const now = Date.now(), dt = now - resetLast; resetLast = now;
-      if (uploading || state !== "result") return;   // paused while uploading / failed
+      if (uploading || state !== "result") return;   // paused while uploading
       resetRemain -= dt; paintReset();
       if (resetRemain <= 0) { stopReset(); backToLive(); }
     }, 250);
@@ -507,6 +589,9 @@
   el.result.addEventListener("pointerdown", () => { if (resetTimer) { resetRemain = resetTotal; paintReset(); } }, { passive: true });
 
   el.retry.addEventListener("click", () => lastBlob && upload(lastBlob));
+  el.confirm.addEventListener("click", confirmPhoto);
+  el.retake.addEventListener("click", retake);
+  el.rFrame.addEventListener("change", () => { if (hasCap) paintReview(); });
 
   function backToLive() { location.reload(); }   // hard reset: guarantees no leaked canvases/URLs/streams
   el.again.addEventListener("click", backToLive);
@@ -524,32 +609,26 @@
     if (prefs.strength) el.strength.value = prefs.strength;
     if (prefs.soft) el.soft.value = prefs.soft;
     if (prefs.despill) el.despill.value = prefs.despill;
-    ["strength", "soft", "despill"].forEach((k, i) => { $(["key-strength-val", "key-soft-val", "key-despill-val"][i]).textContent = el[k].value; });
+    paintSliders();
   }
-  [el.mirror, el.frameOn, el.frameText, el.strength, el.soft, el.despill].forEach((n) => n.addEventListener("input", syncPrefs));
-  el.mode.addEventListener("change", () => { el.mirror.checked = el.mode.value === "test"; syncPrefs(); startCamera(null); });
-  el.camera.addEventListener("change", () => startCamera(el.camera.value));
-  el.shutter.addEventListener("click", takePicture);
-  el.resetToken.addEventListener("click", () => { store.del(TOKEN_KEY); askToken({ operator: true }); });
-
-  // slider readouts + reset to defaults
   const SLIDERS = [[el.strength, "key-strength-val", 50], [el.soft, "key-soft-val", 45], [el.despill, "key-despill-val", 80]];
-  const paintSliders = () => SLIDERS.forEach(([n, id]) => { $(id).textContent = n.value; });
+  function paintSliders() { SLIDERS.forEach(([n, id]) => { $(id).textContent = n.value; }); }
+  [el.mirror, el.frameOn, el.frameText, el.strength, el.soft, el.despill].forEach((n) => n.addEventListener("input", syncPrefs));
   SLIDERS.forEach(([n]) => n.addEventListener("input", paintSliders));
   el.keyReset.addEventListener("click", () => {
     SLIDERS.forEach(([n, , d]) => { n.value = String(d); });
     paintSliders(); syncPrefs();
   });
+  el.mode.addEventListener("change", () => { el.mirror.checked = el.mode.value === "test"; syncPrefs(); startCamera(null); });
+  el.camera.addEventListener("change", () => startCamera(el.camera.value));
+  el.shutter.addEventListener("click", takePicture);
+  el.resetToken.addEventListener("click", () => { store.del(TOKEN_KEY); askToken({ operator: true }); });
   navigator.mediaDevices?.addEventListener?.("devicechange", () => { if (state === "live") listCameras(el.camera.value).catch(() => {}); });
 
-  document.addEventListener("keydown", (e) => {
-    if (e.code === "Space" && state === "live" && !drawerOpen && !/^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(document.activeElement?.tagName || "")) {
-      e.preventDefault(); takePicture();   // also works with wireless clickers
-    }
-  });
+  // language switch: static + dynamic text re-render via I18N; refresh generated option labels
+  window.I18N.onChange(() => { if (navigator.mediaDevices?.enumerateDevices && state === "live") listCameras(el.camera.value).catch(() => {}); });
 
   // ---------- operator drawer ----------
-  let drawerOpen = false;
   let returnFocus = null, openedAt = 0;
   function openDrawer() {
     if (drawerOpen || state !== "live") return;
@@ -564,12 +643,12 @@
     el.drawer.classList.remove("open"); el.scrim.classList.remove("open");
     el.drawer.inert = true; el.live.inert = false;
     bump();
-    const t = returnFocus && document.contains(returnFocus) && !returnFocus.disabled ? returnFocus : el.shutter;
-    (t.disabled ? document.body : t).focus?.();
+    const tg = returnFocus && document.contains(returnFocus) && !returnFocus.disabled ? returnFocus : el.shutter;
+    (tg.disabled ? document.body : tg).focus?.();
   }
   function setPeek(on) {
     el.drawer.classList.toggle("peek", on); el.scrim.classList.toggle("peek", on);
-    el.adminPeek.setAttribute("aria-pressed", String(on)); el.adminPeek.textContent = on ? "Back to settings" : "Peek";
+    el.adminPeek.setAttribute("aria-pressed", String(on)); setI(el.adminPeek, on ? "drawer.back" : "drawer.peek");
   }
   el.adminPeek.addEventListener("click", () => setPeek(!el.drawer.classList.contains("peek")));
   el.adminClose.addEventListener("click", closeDrawer);
@@ -577,12 +656,12 @@
   el.adminOpen.addEventListener("click", openDrawer);
   if (new URLSearchParams(location.search).get("admin") === "1") el.adminOpen.hidden = false;
 
-  // hidden hotspot: long-press 1.5s or 5 quick taps
+  // hidden hotspot: long-press 1.5s or 5 quick taps (pointer events cover touch + mouse + pen)
   (() => {
-    let t = 0, taps = 0, tapTimer = 0;
-    const cancel = () => { clearTimeout(t); t = 0; };
+    let tm = 0, taps = 0, tapTimer = 0;
+    const cancel = () => { clearTimeout(tm); tm = 0; };
     el.adminHold.addEventListener("pointerdown", () => {
-      cancel(); t = setTimeout(() => { t = 0; taps = 0; openDrawer(); }, 1500);
+      cancel(); tm = setTimeout(() => { tm = 0; taps = 0; openDrawer(); }, 1500);
       taps++; clearTimeout(tapTimer); tapTimer = setTimeout(() => (taps = 0), 3000);
       if (taps >= 5) { taps = 0; cancel(); openDrawer(); }
     });
@@ -590,11 +669,20 @@
     el.adminHold.addEventListener("contextmenu", (e) => e.preventDefault());
   })();
 
+  // ---------- keyboard ----------
   document.addEventListener("keydown", (e) => {
-    // laptop: Enter on the result screen = "Next flock!"
-    if (e.key === "Enter" && state === "result" && !el.tokenDialog.open && !/^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(document.activeElement?.tagName || "")) { e.preventDefault(); backToLive(); return; }
+    const ae = document.activeElement, tag = ae?.tagName || "";
+    const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(tag);
     if (e.key === "Escape" && drawerOpen) { e.preventDefault(); closeDrawer(); return; }
-    if (e.shiftKey && e.key.toLowerCase() === "s" && !drawerOpen && !/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName || "")) { e.preventDefault(); openDrawer(); }
+    if (e.key === "Enter" && !typing && !drawerOpen && !el.tokenDialog.open) {
+      if (state === "result" && tag !== "BUTTON") { e.preventDefault(); backToLive(); return; }          // Next guest
+      if (state === "review" && (tag !== "BUTTON" || ae.getAttribute("role") === "radio")) { e.preventDefault(); confirmPhoto(); return; }
+    }
+    if (e.code === "Space" && state === "live" && !drawerOpen && !typing && tag !== "BUTTON") {
+      e.preventDefault(); takePicture();   // also works with wireless clickers
+      return;
+    }
+    if (e.shiftKey && e.key.toLowerCase() === "s" && !drawerOpen && !typing) { e.preventDefault(); openDrawer(); }
   });
 
   // ---------- 3-minute inactivity reset ----------
@@ -605,7 +693,7 @@
 
   function idleTick() {
     const idle = Date.now() - lastActivity;
-    const busy = state === "countdown" || state === "processing" || uploading || el.tokenDialog.open || drawerOpen;
+    const busy = state === "countdown" || state === "processing" || uploading || confirming || el.tokenDialog.open || drawerOpen;
     if (busy) { lastActivity = Date.now(); }
     else if (idle >= IDLE_MS) { location.reload(); return; }
     else if (idle >= IDLE_MS - IDLE_WARN_MS) { el.idleWarn.hidden = false; el.idleSec.textContent = String(Math.ceil((IDLE_MS - idle) / 1000)); }
@@ -618,7 +706,7 @@
   document.addEventListener("visibilitychange", () => { if (!document.hidden) keepAwake(); });
 
   window.addEventListener("pagehide", () => {
-    clearTimeout(idleTimer); stopStream();
+    clearTimeout(idleTimer); stopStream(); freeCapture();
     if (resultUrl) URL.revokeObjectURL(resultUrl);
     customBg?.img.close(); customFrame?.close(); wakeLock?.release?.().catch?.(() => {});
   });
@@ -628,7 +716,8 @@
     // First-run provisioning: https://host/#k=<token> stores the key, then scrubs it from the URL/history.
     const m = location.hash.match(/[#&]k=([^&]+)/);
     if (m) { store.set(TOKEN_KEY, decodeURIComponent(m[1])); history.replaceState(null, "", location.pathname + location.search); }
-    loadPrefs(); buildGallery(); keepAwake();
+    loadPrefs(); buildGallery(); keepAwake(); paintKeyStatus();
+    setI(el.qrText, "res.up"); el.qrDots.hidden = false;
     idleTimer = setTimeout(idleTick, 1000);
     startCamera(null);
   })();

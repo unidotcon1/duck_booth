@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="robots" content="noindex,nofollow">
-  <meta name="theme-color" content="#0b1020">
+  <meta name="theme-color" content="#c9ccd0">
   <title>photo buth</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
@@ -13,19 +13,9 @@
   <main id="screen-live" class="screen kiosk">
     <section class="stage">
       <div class="frame">
-        <canvas id="preview" aria-label="Live camera preview"></canvas>
+        <canvas id="preview" data-i18n-aria="aria.preview" aria-label="Live camera preview"></canvas>
 
-        <div class="brand">
-          <svg class="logo" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
-            <path d="M9 27 3 20l9 2z" fill="#ffb300"/>
-            <ellipse cx="23" cy="32" rx="18" ry="12" fill="#ffd54a"/>
-            <circle cx="30" cy="17" r="11" fill="#ffd54a"/>
-            <ellipse cx="20" cy="34" rx="9" ry="6" fill="#ffb300"/>
-            <path d="M39 15.5 47.5 19 39 22.5z" fill="#ff7a00"/>
-            <circle cx="32.5" cy="14.5" r="2" fill="#0b1020"/>
-          </svg>
-          <h1>photo buth</h1>
-        </div>
+        <div class="brand"><h1>photo buth</h1></div>
 
         <div id="countdown" class="countdown" hidden aria-live="assertive">
           <span id="cd-num" class="cd-num"></span>
@@ -36,109 +26,142 @@
       </div>
     </section>
 
-    <div id="bg-gallery" class="gallery" role="radiogroup" aria-label="Pick a background"></div>
+    <div id="bg-gallery" class="gallery" role="radiogroup" data-i18n-aria="aria.bg" aria-label="Background"></div>
 
     <div class="shutter-bar">
-      <button id="shutter" class="shutter" type="button"><span class="cam" aria-hidden="true">📸</span><span class="shutter-text">Quack a pose!<small class="kbd-hint">or press Space</small></span></button>
-      <p id="hint" class="hint">Tap the button. The duck does the rest.</p>
+      <button id="shutter" class="shutter" type="button" data-i18n="shutter">Take a picture</button>
+      <p id="hint" class="hint kbd-hint" data-i18n="kbd">or press Space</p>
     </div>
+  </main>
+
+  <!-- REVIEW SCREEN (change background after the photo; nothing is uploaded yet) -->
+  <main id="screen-review" class="screen review" hidden>
+    <section class="review-photo">
+      <div class="print"><canvas id="review-canvas" data-i18n-aria="aria.reviewPhoto" aria-label="Your photo"></canvas></div>
+    </section>
+    <section class="review-side">
+      <p class="micro" data-i18n="review.label">Review</p>
+      <h2 data-i18n="review.title">Choose a background</h2>
+      <div id="review-gallery" class="gallery review-gallery" role="radiogroup" data-i18n-aria="aria.bg" aria-label="Background"></div>
+      <label id="review-frame-wrap" class="switch" hidden><input id="review-frame" type="checkbox"> <span data-i18n="review.frame">Event frame</span></label>
+      <p id="review-err" class="err" role="alert" hidden data-i18n="err.create">Could not create the photo. Please try again.</p>
+      <div class="actions">
+        <button id="confirm" type="button" class="primary" data-i18n="review.confirm">Looks good — get QR</button>
+        <button id="retake" type="button" class="secondary" data-i18n="review.retake">Retake</button>
+      </div>
+    </section>
   </main>
 
   <!-- RESULT SCREEN -->
   <main id="screen-result" class="screen result" hidden>
-    <section class="result-photo"><img id="result-img" alt="Your photo"></section>
+    <section class="result-photo">
+      <div class="plate">
+        <span class="micro" data-i18n="plate">Scan to download</span>
+        <svg class="arrow" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M12 4v14M6 12.5l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="slot" aria-hidden="true"></div>
+      <div class="emerge"><img id="result-img" data-i18n-alt="aria.reviewPhoto" alt="Your photo"></div>
+    </section>
     <section class="result-side">
-      <h2>Scan to grab your photo</h2>
-      <div id="qr" class="qr" aria-live="polite"><p id="qr-status">Waddling your photo to the cloud…<span class="dots" aria-hidden="true"><i></i><i></i><i></i></span></p></div>
+      <h2 id="result-title" data-i18n="res.head.ok">Your photo is ready</h2>
+      <div id="qr" class="qr" aria-live="polite"><p id="qr-status"><span id="qr-status-text" data-i18n="res.up">Preparing your download…</span><span id="qr-dots" class="dots" aria-hidden="true"><i></i><i></i><i></i></span></p></div>
       <p id="qr-hint" class="hint"></p>
       <div class="actions">
-        <button id="again" type="button" class="primary"><span aria-hidden="true">✓</span> Next flock!</button>
-        <button id="retry" type="button" class="secondary" hidden>Try again</button>
+        <button id="again" type="button" class="primary"><span data-i18n="res.again">Next guest</span> <span aria-hidden="true">→</span></button>
+        <button id="retry" type="button" class="secondary" hidden data-i18n="res.retry">Try again</button>
       </div>
       <p id="reset-note" class="reset-note" hidden>
         <svg id="reset-ring" class="ring" viewBox="0 0 36 36" aria-hidden="true" focusable="false">
           <circle class="track" cx="18" cy="18" r="15"/>
           <circle class="bar" cx="18" cy="18" r="15"/>
         </svg>
-        <span>Next guest in <b id="again-sec">45</b>s &middot; tap anywhere to stay</span>
+        <span id="reset-text" data-i18n="res.reset"></span>
       </p>
     </section>
   </main>
 
-  <div id="idle-warning" class="toast" hidden role="status">Still there? Duck is napping in <b id="idle-sec">20</b>s. Tap to stay.</div>
+  <div id="idle-warning" class="toast" hidden role="status"><span id="idle-text" data-i18n="idle"></span></div>
+
+  <!-- LANGUAGE -->
+  <div id="lang-toggle" class="lang" role="group" data-i18n-aria="aria.lang" aria-label="Language">
+    <button type="button" data-lang="en" aria-pressed="true">EN</button>
+    <button type="button" data-lang="zh-CN" aria-pressed="false" lang="zh-CN">中文</button>
+  </div>
 
   <!-- OPERATOR ACCESS (invisible hotspot; gear only with ?admin=1) -->
   <div id="admin-hold" class="admin-hold" aria-hidden="true"></div>
-  <button id="admin-open" class="admin-open" type="button" aria-label="Open operator settings" aria-controls="admin-drawer" hidden>
-    <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M19.4 13a7.9 7.9 0 0 0 0-2l2.1-1.6a.5.5 0 0 0 .1-.6l-2-3.5a.5.5 0 0 0-.6-.2l-2.5 1a7.6 7.6 0 0 0-1.7-1l-.4-2.6a.5.5 0 0 0-.5-.4h-4a.5.5 0 0 0-.5.4L9 5.5a7.6 7.6 0 0 0-1.7 1l-2.5-1a.5.5 0 0 0-.6.2l-2 3.5a.5.5 0 0 0 .1.6L4.6 11a7.9 7.9 0 0 0 0 2l-2.1 1.6a.5.5 0 0 0-.1.6l2 3.5c.1.2.4.3.6.2l2.5-1c.5.4 1.1.7 1.7 1l.4 2.6c0 .2.3.4.5.4h4c.2 0 .5-.2.5-.4l.4-2.6c.6-.3 1.2-.6 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5a.5.5 0 0 0-.1-.6zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z"/></svg>
+  <button id="admin-open" class="admin-open" type="button" data-i18n-aria="drawer.open" aria-label="Open operator settings" aria-controls="admin-drawer" hidden>
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path fill="currentColor" d="M19.4 13a7.9 7.9 0 0 0 0-2l2.1-1.6a.5.5 0 0 0 .1-.6l-2-3.5a.5.5 0 0 0-.6-.2l-2.5 1a7.6 7.6 0 0 0-1.7-1l-.4-2.6a.5.5 0 0 0-.5-.4h-4a.5.5 0 0 0-.5.4L9 5.5a7.6 7.6 0 0 0-1.7 1l-2.5-1a.5.5 0 0 0-.6.2l-2 3.5a.5.5 0 0 0 .1.6L4.6 11a7.9 7.9 0 0 0 0 2l-2.1 1.6a.5.5 0 0 0-.1.6l2 3.5c.1.2.4.3.6.2l2.5-1c.5.4 1.1.7 1.7 1l.4 2.6c0 .2.3.4.5.4h4c.2 0 .5-.2.5-.4l.4-2.6c.6-.3 1.2-.6 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5a.5.5 0 0 0-.1-.6zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z"/></svg>
   </button>
 
   <div id="admin-scrim" class="scrim"></div>
   <aside id="admin-drawer" class="drawer" role="dialog" aria-modal="true" aria-labelledby="admin-title" inert>
     <header class="drawer-head">
-      <h2 id="admin-title">Operator settings</h2>
-      <button id="admin-peek" class="peek-btn" type="button" aria-pressed="false">Peek</button>
-      <button id="admin-close" class="close" type="button" aria-label="Close settings">&times;</button>
+      <h2 id="admin-title" data-i18n="drawer.title">Operator settings</h2>
+      <button id="admin-peek" class="peek-btn" type="button" aria-pressed="false" data-i18n="drawer.peek">Peek</button>
+      <button id="admin-close" class="close" type="button" data-i18n-aria="drawer.close" aria-label="Close settings">&times;</button>
     </header>
 
     <div class="drawer-body">
-      <label class="field">Mode
+      <label class="field"><span data-i18n="drawer.mode">Mode</span>
         <select id="mode">
-          <option value="test">Testing — laptop webcam</option>
-          <option value="prod">Production — Nikon DSLR (virtual webcam)</option>
+          <option value="test" data-i18n="drawer.modeTest">Testing — laptop webcam</option>
+          <option value="prod" data-i18n="drawer.modeProd">Production — Nikon DSLR (virtual webcam)</option>
         </select>
       </label>
 
-      <label class="field">Camera
+      <label class="field"><span data-i18n="drawer.camera">Camera</span>
         <select id="camera"></select>
       </label>
 
       <div class="field">
-        <span class="legend">Custom background</span>
-        <label class="file">＋ Choose an image
+        <span class="legend" data-i18n="drawer.customBg">Custom background</span>
+        <label class="file"><span data-i18n="drawer.chooseImg">+ Choose an image</span>
           <input id="bg-file" type="file" accept="image/jpeg,image/png,image/webp">
         </label>
       </div>
 
       <details class="field tuning" open>
-        <summary>Green-screen tuning</summary>
-        <label><span class="lab">Key strength <output id="key-strength-val">50</output></span> <input id="key-strength" type="range" min="0" max="100" value="50"></label>
-        <label><span class="lab">Edge softness <output id="key-soft-val">45</output></span> <input id="key-soft" type="range" min="5" max="80" value="45"></label>
-        <label><span class="lab">Despill <output id="key-despill-val">80</output></span> <input id="key-despill" type="range" min="0" max="100" value="80"></label>
-        <button id="key-reset" class="secondary-sm" type="button">Reset sliders</button>
+        <summary data-i18n="drawer.tuning">Green-screen tuning</summary>
+        <label><span class="lab"><span data-i18n="drawer.strength">Key strength</span> <output id="key-strength-val">50</output></span> <input id="key-strength" type="range" min="0" max="100" value="50"></label>
+        <label><span class="lab"><span data-i18n="drawer.soft">Edge softness</span> <output id="key-soft-val">45</output></span> <input id="key-soft" type="range" min="5" max="80" value="45"></label>
+        <label><span class="lab"><span data-i18n="drawer.despill">Despill</span> <output id="key-despill-val">80</output></span> <input id="key-despill" type="range" min="0" max="100" value="80"></label>
+        <button id="key-reset" class="secondary-sm" type="button" data-i18n="drawer.resetSliders">Reset sliders</button>
       </details>
 
       <fieldset class="field">
-        <legend>Event frame</legend>
-        <label class="inline"><input id="frame-on" type="checkbox"> Show frame</label>
-        <input id="frame-text" type="text" maxlength="40" placeholder="Event name" autocomplete="off">
-        <label class="file">＋ Frame PNG (transparent)
+        <legend data-i18n="drawer.frame">Event frame</legend>
+        <label class="inline"><input id="frame-on" type="checkbox"> <span data-i18n="drawer.showFrame">Show frame</span></label>
+        <input id="frame-text" type="text" maxlength="40" data-i18n-ph="drawer.eventName" placeholder="Event name" autocomplete="off">
+        <label class="file"><span data-i18n="drawer.framePng">+ Frame PNG (transparent)</span>
           <input id="frame-file" type="file" accept="image/png">
         </label>
       </fieldset>
 
-      <label class="inline field"><input id="mirror" type="checkbox"> Mirror image</label>
-      <p class="note">Mirror (on for webcam, off for Nikon)</p>
-      <button id="reset-token" class="link" type="button">Reset kiosk key</button>
+      <label class="inline field"><input id="mirror" type="checkbox"> <span data-i18n="drawer.mirror">Mirror image</span></label>
+      <p class="note" data-i18n="drawer.mirrorNote">Mirror (on for webcam, off for Nikon)</p>
+      <p id="key-status" class="note" data-i18n="drawer.keyReq">Upload key: required</p>
+      <button id="reset-token" class="link" type="button" data-i18n="drawer.resetKey">Reset upload key</button>
     </div>
   </aside>
 
   <dialog id="token-dialog">
     <form method="dialog" id="token-form">
-      <h2>Kiosk key required</h2>
-      <p id="token-err" class="token-err" role="alert" hidden>That key didn't work. Try again.</p>
-      <p id="token-guest">The duck needs the kiosk key. Ask a host for help.</p>
-      <p id="token-op" hidden>Paste the key set with <code>wrangler secret put KIOSK_TOKEN</code>. It is stored only on this device.</p>
-      <p class="note">Operator access: hold the top-right corner 1.5s, or add <code>?admin=1</code> to the address.</p>
+      <h2 data-i18n="tok.title">Upload key required</h2>
+      <p id="token-err" class="token-err" role="alert" hidden data-i18n="tok.err">That key didn't work. Try again.</p>
+      <p id="token-guest" data-i18n="tok.guest">Please ask a host for help.</p>
+      <p id="token-op" hidden data-i18n="tok.op">Paste the key set with wrangler secret put KIOSK_TOKEN. It is stored only on this device.</p>
+      <p class="note" data-i18n="tok.hint">Operator access: hold the top-right corner for 1.5 seconds, or add ?admin=1 to the address.</p>
       <input id="token-input" type="password" autocomplete="off" required>
       <div class="dlg-actions">
-        <button id="token-cancel" class="secondary-sm" type="button">Cancel</button>
-        <button class="primary" type="submit">Save</button>
+        <button id="token-cancel" class="secondary-sm" type="button" data-i18n="tok.cancel">Cancel</button>
+        <button class="primary" type="submit" data-i18n="tok.save">Save</button>
       </div>
     </form>
   </dialog>
 
   <script src="/vendor/qrcode.js"></script>
+  <script src="/i18n.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>
