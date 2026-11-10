@@ -622,7 +622,7 @@
   }
   function addFiles(files) {
     if (!st || !mgr || mgr.busy) return;
-    mgr.busy = true; mgr.msgs = []; renderManager();
+    mgr.busy = true; mgr.res = null; renderManager();
     var added = 0, errs = [], chain = loadLocal();
     files.forEach(function (f) {
       chain = chain.then(function () { return addOne(f); }).then(function (r) { if (r.ok) added++; else errs.push(r); });
@@ -630,11 +630,7 @@
     chain.then(function () {
       if (!mgr) return;
       mgr.busy = false;
-      var m = T().m, msgs = [];
-      if (added) msgs.push({ kind: 'ok', text: m.added(added) });
-      errs.slice(0, 4).forEach(function (e) { msgs.push({ kind: 'err', text: e.name + ': ' + m[e.err] }); });
-      if (errs.length > 4) msgs.push({ kind: 'err', text: '… +' + (errs.length - 4) });
-      mgr.msgs = msgs; mgr.errs = errs.slice(0, 4);
+      mgr.res = { added: added, errs: errs };
       refreshTrayAndManager();
     });
   }
@@ -678,7 +674,12 @@
     zone.addEventListener('dragleave', function (e) { if (!zone.contains(e.relatedTarget)) zone.classList.remove('stk-mgr-over'); });
     zone.addEventListener('drop', function (e) { e.preventDefault(); zone.classList.remove('stk-mgr-over'); var fl = Array.prototype.slice.call((e.dataTransfer && e.dataTransfer.files) || []); if (fl.length) addFiles(fl); });
 
-    var msgs = (mgr.msgs || []).slice();
+    var msgs = [], rs = mgr.res;
+    if (rs) {
+      if (rs.added) msgs.push({ kind: 'ok', text: m.added(rs.added) });
+      rs.errs.slice(0, 4).forEach(function (e) { msgs.push({ kind: 'err', text: e.name + ': ' + m[e.err] }); });
+      if (rs.errs.length > 4) msgs.push({ kind: 'err', text: '… +' + (rs.errs.length - 4) });
+    }
     if (!persistOK && local.length) msgs.push({ kind: 'warn', text: m.nostore });
     if (msgs.length) {
       var ms = el('div', 'stk-mgr-msg'); ms.setAttribute('role', 'status');
@@ -726,7 +727,7 @@
   function mountManager(container) {
     if (!container) return;
     if (mgr && mgr.box !== container) { mgr.box.textContent = ''; }
-    mgr = { box: container, busy: false, msgs: [], confirm: null, focusKey: null };
+    mgr = { box: container, busy: false, res: null, confirm: null, focusKey: null };
     renderManager();
     loadLocal().then(function () {
       if (!st || !mgr) return;
