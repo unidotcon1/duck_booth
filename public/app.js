@@ -11,7 +11,7 @@
   const MAX_UPLOAD = 5 * 1024 * 1024;
   const COUNTDOWN_SEC = 3;
   const UPLOAD_TRIES = 3;
-  const RESET_MS = 45 * 1000, FAIL_RESET_MS = 30 * 1000;
+  const QR_WAIT_MS = 3 * 60 * 1000, FAIL_RESET_MS = 30 * 1000;
   const TOKEN_KEY = "photobooth.kioskToken";
   const PREFS_KEY = "photobooth.prefs";
 
@@ -25,7 +25,7 @@
     frameOn: $("frame-on"), frameText: $("frame-text"), frameFile: $("frame-file"), mirror: $("mirror"),
     resetToken: $("reset-token"), keyStatus: $("key-status"),
     rCanvas: $("review-canvas"), rFrame: $("review-frame"), rFrameWrap: $("review-frame-wrap"), rErr: $("review-err"),
-    confirm: $("confirm"), cutToggle: $("cut-toggle"), cutProgress: $("cut-progress"), cutErr: $("cut-error"), cutKeep: $("cut-keep"), method: $("cutout-method"), tuning: $("tuning"), retake: $("retake"),
+    confirm: $("confirm"), qrWaitSel: $("qr-wait"), scale: $("ui-scale"), scaleVal: $("ui-scale-val"), scaleReset: $("ui-scale-reset"), cutToggle: $("cut-toggle"), cutProgress: $("cut-progress"), cutErr: $("cut-error"), cutKeep: $("cut-keep"), method: $("cutout-method"), tuning: $("tuning"), retake: $("retake"),
     img: $("result-img"), heading: $("result-title"), qr: $("qr"), qrStatus: $("qr-status"), qrText: $("qr-status-text"), qrDots: $("qr-dots"), qrHint: $("qr-hint"),
     retry: $("retry"), again: $("again"),
     idleWarn: $("idle-warning"), idleText: $("idle-text"),
@@ -39,7 +39,7 @@
 
   // live counters are created here (i18n renders the surrounding sentence around them)
   const mkB = (id, txt) => { const b = document.createElement("b"); b.id = id; b.textContent = txt; return b; };
-  el.againSec = mkB("again-sec", "45"); el.idleSec = mkB("idle-sec", "20");
+  el.againSec = mkB("again-sec", "3:00"); el.idleSec = mkB("idle-sec", "20");
 
   // ---------- safe storage ----------
   const store = {
@@ -49,6 +49,7 @@
   };
   const prefs = (() => { try { return JSON.parse(store.get(PREFS_KEY) || "{}"); } catch { return {}; } })();
   const savePrefs = () => store.set(PREFS_KEY, JSON.stringify(prefs));
+  let qrWait = prefs.qrWait === "none" ? "none" : "3min";   // result-screen auto-reset: "3min" | "none"
 
   // ---------- state ----------
   let state = "live"; // live | countdown | processing | review | result
@@ -65,6 +66,9 @@
   let lastBlob = null;
   let uploading = false;
   let confirming = false;
+  let fileBg = null;        // { id, bmp } full-res bitmap of the selected manifest background (only one kept)
+  let fileItems = [];       // manifest background items [{id,file,name}]
+  const REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)");
   let drawerOpen = false;
   const setState = (s) => { state = s; document.body.dataset.state = s; };
   const showScreen = (which) => { el.live.hidden = which !== "live"; el.review.hidden = which !== "review"; el.result.hidden = which !== "result"; };
@@ -108,8 +112,8 @@
       ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
     } else if (bg.type === "solid") {
       ctx.fillStyle = bg.color; ctx.fillRect(0, 0, w, h);
-    } else if (bg.type === "image" && customBg) {
-      const { img } = customBg;
+    } else if ((bg.type === "image" && customBg) || (bg.type === "file" && fileBg && fileBg.id === bg.id)) {
+      const img = bg.type === "image" ? customBg.img : fileBg.bmp;
       const r = Math.max(w / img.width, h / img.height); // cover
       const dw = img.width * r, dh = img.height * r;
       ctx.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
@@ -122,6 +126,7 @@
 
   function currentBg() {
     if (bgId === "custom" && customBg) return { id: "custom", type: "image" };
+    if (fileItems.some((i) => i.id === bgId)) return { id: bgId, type: "file" };
     return BACKGROUNDS.find((b) => b.id === bgId) || BACKGROUNDS[2];
   }
 
@@ -175,8 +180,68 @@
     }
   }
   function selectBg(id) {
-    bgId = id; removeOn = false; syncGallery();
+    bgId = id; removeOn = false; prefs.bg = id; savePrefs(); syncGallery();
+    ensureFileBg(id).then(() => { if (state === "review" && hasCap && bgId === id) refreshReview(); });
     if (state === "review" && hasCap) refreshReview();   // instant re-composite at preview size
+  }
+
+  // ---------- background images from /backgrounds/manifest.json ----------
+  const bgUrl = (item) => `/backgrounds/${encodeURIComponent(item.file)}`;
+  const itemName = (item) => (item.name && (item.name[window.I18N.getLang()] || item.name.en)) || item.id;
+  function relabelFileThumbs() {
+    for (const g of GALLERIES) for (const btn of g.querySelectorAll("[data-file]")) {
+      const item = fileItems.find((i) => i.id === btn.dataset.id); if (!item) continue;
+      const n = itemName(item);
+      btn.setAttribute("aria-label", n); btn.title = n; btn.querySelector(".lbl").textContent = n;
+    }
+  }
+  // Decode the full image only for the selected item; the previous bitmap is closed.
+  async function ensureFileBg(id) {
+    const item = fileItems.find((i) => i.id === id);
+    if (!item || (fileBg && fileBg.id === id)) return;
+    try {
+      const res = await fetch(bgUrl(item)); if (!res.ok) throw new Error("bg");
+      const bmp = await createImageBitmap(await res.blob());
+      if (bgId !== id) { bmp.close(); return; }   // selection moved on while decoding
+      fileBg?.bmp.close(); fileBg = { id, bmp };
+    } catch {   // file gone / unreadable: fall back to Original
+      if (bgId === id) selectBg("raw");
+    }
+  }
+  async function loadManifest() {
+    let m = null;
+    try { const r = await fetch("/backgrounds/manifest.json", { cache: "no-store" }); if (r.ok) m = await r.json(); } catch { /* none */ }
+    if (!m || !Array.isArray(m.items)) m = { includeBuiltins: true, items: [] };
+    if (m.includeBuiltins === false) {
+      for (const g of GALLERIES) for (const b of [...g.children]) { const bg = BACKGROUNDS.find((x) => x.id === b.dataset.id); if (bg && (bg.type === "gradient" || bg.type === "solid")) b.remove(); }
+    }
+    const items = m.items.filter((i) => i && typeof i.id === "string" && typeof i.file === "string");
+    const thumbs = new Array(items.length).fill(null);
+    let next = 0;
+    const worker = async () => {   // small-size decode, 4 at a time
+      while (next < items.length) {
+        const idx = next++, item = items[idx];
+        try {
+          const r = await fetch(bgUrl(item)); if (!r.ok) continue;
+          const bmp = await createImageBitmap(await r.blob(), { resizeWidth: 160, resizeQuality: "medium" });
+          const c = document.createElement("canvas"); c.width = c.height = 128;
+          const x = c.getContext("2d"); const k = Math.max(128 / bmp.width, 128 / bmp.height);
+          x.drawImage(bmp, (128 - bmp.width * k) / 2, (128 - bmp.height * k) / 2, bmp.width * k, bmp.height * k);
+          bmp.close(); thumbs[idx] = c;
+        } catch { /* skip silently */ }
+      }
+    };
+    await Promise.all([worker(), worker(), worker(), worker()]);
+    fileItems = items.filter((_, i) => thumbs[i]);
+    const customBtn = el.rGallery.querySelector('[data-id="custom"]');
+    items.forEach((item, i) => {
+      if (!thumbs[i]) return;
+      const btn = makeThumb(item.id, "bg.custom"); btn.dataset.file = "1";
+      btn.removeAttribute("data-i18n-aria"); btn.removeAttribute("data-i18n-title"); btn.querySelector(".lbl").removeAttribute("data-i18n");
+      const c = btn.firstChild; c.width = c.height = 128; c.getContext("2d").drawImage(thumbs[i], 0, 0);
+      el.rGallery.insertBefore(btn, customBtn);
+    });
+    relabelFileThumbs(); syncGallery();
   }
 
   GALLERIES.forEach((g) => g.addEventListener("keydown", (e) => {
@@ -375,6 +440,7 @@
 
   function freeCapture() {
     cutId++; cutStatus = "idle"; cutPromise = null;   // discard any in-flight cut-out
+    fileBg?.bmp.close(); fileBg = null;                // background image is re-decoded lazily next time
     capRaw.width = capRaw.height = 0; capCut.width = capCut.height = 0;   // release backing stores
     hasCap = false;
   }
@@ -475,7 +541,10 @@
     const frameShown = el.frameOn.checked;
     el.rFrame.checked = frameShown; el.rFrameWrap.hidden = !frameShown;
     el.rErr.hidden = true; el.confirm.disabled = el.retake.disabled = false;
-    bgId = "raw"; removeOn = false; syncGallery();
+    removeOn = false;
+    const saved = prefs.bg;   // last chosen background (falls back to Original if it no longer exists)
+    bgId = saved && saved !== "raw" && [...el.rGallery.children].some((b) => b.dataset.id === saved) ? saved : "raw";
+    syncGallery(); ensureFileBg(bgId).then(() => { if (state === "review" && hasCap) refreshReview(); });
     startCutout();   // kick off in the background so it is usually ready by the time a background is picked
     refreshReview();
     showScreen("review"); setState("review");
@@ -509,25 +578,37 @@
     if (needCut() && cutStatus === "working") { refreshReview(); await cutPromise; }   // wait for the cut-out
     if (id !== cutId || !hasCap) { confirming = false; return; }
     if (needCut() && cutStatus !== "ready") { confirming = false; el.confirm.disabled = el.retake.disabled = false; refreshReview(); return; }
+    if (effBg().type === "file") await ensureFileBg(bgId);
     let blob = null;
     try { blob = await exportBlob(1); } catch { blob = null; }
-    confirming = false;
-    if (!blob) { el.confirm.disabled = el.retake.disabled = false; el.rErr.hidden = false; return; }
+    if (!blob) { confirming = false; el.confirm.disabled = el.retake.disabled = false; el.rErr.hidden = false; return; }
     lastBlob = blob;
     freeCapture();
-    showResult(blob);
-    upload(blob);
+    beginResult(blob); upload(blob);   // upload runs while the photo slides away
+    await slideOut();
+    confirming = false;
+    enterResult();
   }
 
-  function showResult(blob) {
-    setState("result");
+  // The review photo slides down off-screen, then the result screen takes over (one continuous "print" motion).
+  function slideOut() {
+    if (REDUCED.matches) return Promise.resolve();
+    el.review.classList.add("leaving");
+    return sleep(680);
+  }
+
+  function beginResult(blob) {
     stopReset(); el.qr.classList.remove("ok", "fail"); setI(el.heading, "res.head.ok");
     if (resultUrl) URL.revokeObjectURL(resultUrl);
     resultUrl = URL.createObjectURL(blob);
-    el.img.removeAttribute("src"); void el.img.offsetWidth; el.img.src = resultUrl;   // restart the slide-out
+    el.img.removeAttribute("src"); el.img.src = resultUrl;
     el.qr.textContent = ""; el.qr.append(el.qrStatus); setStatus("res.up", true);
     clearI(el.qrHint); el.retry.hidden = true;
-    showScreen("result");
+  }
+  function enterResult() {
+    showScreen("result"); setState("result");
+    el.review.classList.remove("leaving");
+    const c = el.rCanvas; c.width = c.height = 0;   // release the review canvas
   }
 
   // ---------- upload ----------
@@ -598,7 +679,7 @@
       el.qr.classList.remove("fail"); void el.qr.offsetWidth; el.qr.classList.add("fail");
       setI(el.qrHint, e.message === "unauthorized" ? "res.hint.unauth" : "res.hint.fail");
       el.retry.hidden = false; setI(el.heading, "res.head.fail");
-      uploading = false; startReset(FAIL_RESET_MS);   // photo is safe on screen; free the kiosk for the next guest
+      uploading = false; if (qrWait !== "none") startReset(FAIL_RESET_MS);   // photo is safe on screen; free the kiosk for the next guest
     } finally { clearTimeout(slow); uploading = false; }
   }
 
@@ -619,17 +700,20 @@
   }
 
   // ---------- auto-reset (result screen) ----------
-  let resetTotal = RESET_MS, resetTimer = 0, resetRemain = RESET_MS, resetLast = 0;
+  let resetTotal = QR_WAIT_MS, resetTimer = 0, resetRemain = QR_WAIT_MS, resetLast = 0;
   const RING_LEN = 2 * Math.PI * 15;
   setI(el.resetText, "res.reset", { s: el.againSec });
   setI(el.idleText, "idle", { s: el.idleSec });
   function paintReset() {
-    el.againSec.textContent = String(Math.max(0, Math.ceil(resetRemain / 1000)));
+    const sec = Math.max(0, Math.ceil(resetRemain / 1000));
+    el.againSec.textContent = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
     const bar = el.resetRing.querySelector(".bar");
     if (bar) bar.style.strokeDashoffset = String(RING_LEN * (1 - resetRemain / resetTotal));
   }
-  function startReset(total = RESET_MS) {
-    stopReset(); resetTotal = total; resetRemain = total; resetLast = Date.now(); paintReset(); el.resetNote.hidden = false;
+  function startReset(total = QR_WAIT_MS) {
+    stopReset();
+    if (qrWait === "none") return;   // no time limit: the Next guest button is the only exit
+    resetTotal = total; resetRemain = total; resetLast = Date.now(); paintReset(); el.resetNote.hidden = false;
     resetTimer = setInterval(() => {
       const now = Date.now(), dt = now - resetLast; resetLast = now;
       if (uploading || state !== "result") return;   // paused while uploading
@@ -665,7 +749,17 @@
     if (prefs.soft) el.soft.value = prefs.soft;
     if (prefs.despill) el.despill.value = prefs.despill;
     paintSliders();
+    el.qrWaitSel.value = qrWait; applyScale(prefs.scale);
   }
+  function applyScale(v) {
+    v = Math.min(3, Math.max(1, Math.round((+v || 1) * 10) / 10));
+    document.documentElement.style.setProperty("--ui-scale", String(v));
+    el.scale.value = String(v); el.scaleVal.textContent = `${v.toFixed(1)}×`;
+    return v;
+  }
+  el.scale.addEventListener("input", () => { prefs.scale = applyScale(el.scale.value); savePrefs(); });
+  el.scaleReset.addEventListener("click", () => { prefs.scale = applyScale(1); savePrefs(); });
+  el.qrWaitSel.addEventListener("change", () => { qrWait = el.qrWaitSel.value === "none" ? "none" : "3min"; prefs.qrWait = qrWait; savePrefs(); });
   const SLIDERS = [[el.strength, "key-strength-val", 50], [el.soft, "key-soft-val", 45], [el.despill, "key-despill-val", 80]];
   function paintSliders() { SLIDERS.forEach(([n, id]) => { $(id).textContent = n.value; }); }
   [el.mirror, el.frameOn, el.frameText, el.strength, el.soft, el.despill].forEach((n) => n.addEventListener("input", syncPrefs));
@@ -683,7 +777,7 @@
   navigator.mediaDevices?.addEventListener?.("devicechange", () => { if (state === "live") listCameras(el.camera.value).catch(() => {}); });
 
   // language switch: static + dynamic text re-render via I18N; refresh generated option labels
-  window.I18N.onChange(() => { if (navigator.mediaDevices?.enumerateDevices && state === "live") listCameras(el.camera.value).catch(() => {}); });
+  window.I18N.onChange(() => { relabelFileThumbs(); if (navigator.mediaDevices?.enumerateDevices && state === "live") listCameras(el.camera.value).catch(() => {}); });
 
   // ---------- operator drawer ----------
   let returnFocus = null, openedAt = 0;
@@ -750,7 +844,7 @@
 
   function idleTick() {
     const idle = Date.now() - lastActivity;
-    const busy = state === "countdown" || state === "processing" || uploading || confirming || el.tokenDialog.open || drawerOpen;
+    const busy = state === "countdown" || state === "processing" || uploading || confirming || state === "result" || el.tokenDialog.open || drawerOpen;   // result screen has its own timer (or none)
     if (busy) { lastActivity = Date.now(); }
     else if (idle >= IDLE_MS) { location.reload(); return; }
     else if (idle >= IDLE_MS - IDLE_WARN_MS) { el.idleWarn.hidden = false; el.idleSec.textContent = String(Math.ceil((IDLE_MS - idle) / 1000)); }
@@ -765,7 +859,7 @@
   window.addEventListener("pagehide", () => {
     clearTimeout(idleTimer); stopStream(); freeCapture();
     if (resultUrl) URL.revokeObjectURL(resultUrl);
-    customBg?.img.close(); customFrame?.close(); wakeLock?.release?.().catch?.(() => {});
+    customBg?.img.close(); customFrame?.close(); fileBg?.bmp.close(); wakeLock?.release?.().catch?.(() => {});
   });
 
   // ---------- init ----------
@@ -773,7 +867,7 @@
     // First-run provisioning: https://host/#k=<token> stores the key, then scrubs it from the URL/history.
     const m = location.hash.match(/[#&]k=([^&]+)/);
     if (m) { store.set(TOKEN_KEY, decodeURIComponent(m[1])); history.replaceState(null, "", location.pathname + location.search); }
-    loadPrefs(); buildGallery(); keepAwake(); paintKeyStatus();
+    loadPrefs(); buildGallery(); keepAwake(); paintKeyStatus(); loadManifest();
     setI(el.qrText, "res.up"); el.qrDots.hidden = false;
     idleTimer = setTimeout(idleTick, 1000);
     startCamera(null);

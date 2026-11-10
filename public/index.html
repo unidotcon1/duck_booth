@@ -16,8 +16,8 @@
         <canvas id="preview" data-i18n-aria="aria.preview" aria-label="Live camera preview"></canvas>
 
         <div class="brand">
-          <img class="logo" src="/logo.png" width="453" height="114" alt="Providence Presbyterian Church 长老会恩泽堂">
-          <h1 class="micro" data-i18n="brand">Photo Booth</h1>
+          <img class="logo" src="/logo-crest.png" width="99" height="94" alt="Providence Presbyterian Church">
+          <h1 class="sr-only" data-i18n="brand">Photo Booth</h1>
         </div>
 
         <div id="countdown" class="countdown" hidden aria-live="assertive">
@@ -111,6 +111,18 @@
     </header>
 
     <div class="drawer-body">
+      <label class="field"><span data-i18n="drawer.qrWait">QR wait time</span>
+        <select id="qr-wait">
+          <option value="3min" data-i18n="drawer.qr3">3 minutes</option>
+          <option value="none" data-i18n="drawer.qrNone">No time limit</option>
+        </select>
+      </label>
+
+      <div class="field">
+        <label><span class="lab"><span data-i18n="drawer.scale">Text size</span> <output id="ui-scale-val">1.0×</output></span> <input id="ui-scale" type="range" min="1" max="3" step="0.1" value="1"></label>
+        <button id="ui-scale-reset" class="secondary-sm" type="button" data-i18n="drawer.scaleReset">Reset</button>
+      </div>
+
       <label class="field"><span data-i18n="drawer.mode">Mode</span>
         <select id="mode">
           <option value="test" data-i18n="drawer.modeTest">Testing — laptop webcam</option>
