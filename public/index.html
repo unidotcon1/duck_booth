@@ -59,6 +59,7 @@
     <section class="review-side">
       <p class="micro" data-i18n="review.label">Review</p>
       <h2 data-i18n="review.title">Choose a background</h2>
+      <div class="review-scroll">
       <div id="review-gallery" class="gallery review-gallery" role="radiogroup" data-i18n-aria="aria.bg" aria-label="Background"></div>
       <p class="micro filter-readout"><span data-i18n="review.filterLbl">Filter</span>: <span id="review-filter-name" data-i18n="f.none">Original</span></p>
       <div id="strip-tools" class="strip-tools" hidden>
@@ -88,7 +89,8 @@
         <p class="note" data-i18n="st.hint2">Tap a sticker to adjust · ✕ to delete</p>
       </div>
       <p id="review-err" class="err" role="alert" hidden data-i18n="err.create">Could not create the photo. Please try again.</p>
-      <div class="actions">
+            </div>
+      <div class="actions sticky-actions">
         <button id="confirm" type="button" class="primary" data-i18n="review.confirm">Looks good — get QR</button>
         <button id="retake" type="button" class="secondary" data-i18n="review.retake">Retake</button>
       </div>
