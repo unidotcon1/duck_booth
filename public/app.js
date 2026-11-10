@@ -1256,7 +1256,7 @@
     const m = location.hash.match(/[#&]k=([^&]+)/);
     if (m) { store.set(TOKEN_KEY, decodeURIComponent(m[1])); history.replaceState(null, "", location.pathname + location.search); }
     loadPrefs(); buildGallery(); buildFilterGallery(); keepAwake(); paintKeyStatus(); loadManifest();
-    if (ST) { try { ST.init({ layer: el.stLayer, tray: el.stTray, getLang: () => window.I18N.getLang(), onchange() {} }); ST.load().then(buildOptStickers).catch(() => {}); window.I18N.onChange(() => { if (ST.listOptionalGroups) buildOptStickers(); }); } catch { /* stickers unavailable */ } }
+    if (ST) { try { ST.init({ layer: el.stLayer, tray: el.stTray, getLang: () => window.I18N.getLang(), onchange() {} }); ST.load().then(buildOptStickers).catch(() => {}); if (ST.mountManager) ST.mountManager($("stk-manager")); window.I18N.onChange(() => { if (ST.listOptionalGroups) buildOptStickers(); }); } catch { /* stickers unavailable */ } }
     el.stBox.hidden = !ST;
     setI(el.qrText, "res.up"); el.qrDots.hidden = false;
     idleTimer = setTimeout(idleTick, 1000);

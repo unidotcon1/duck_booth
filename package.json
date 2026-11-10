@@ -1,12 +1,13 @@
 {
-  "name": "duck_booth",
+  "name": "photo-booth",
   "version": "1.0.0",
-  "description": "",
+  "description": "Browser photo booth with AI background removal, filters, stickers and QR download",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "backgrounds": "node scripts/build-backgrounds.mjs",
-    "stickers": "node scripts/build-stickers.mjs"
+    "stickers": "node scripts/build-stickers.mjs",
+    "start": "wrangler dev --ip 0.0.0.0"
   },
   "repository": {
     "type": "git",
