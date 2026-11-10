@@ -1,13 +1,14 @@
-// photo buth — tiny i18n layer (en + zh-CN). No inline script (CSP: script-src 'self').
+// Photo Booth — tiny i18n layer (en + zh-CN). No inline script (CSP: script-src 'self').
 // Static HTML: data-i18n (text), data-i18n-aria, data-i18n-title, data-i18n-ph, data-i18n-alt.
 // Dynamic text: I18N.set(node, key, vars) stores key+vars on the node so a language switch re-renders it.
 // A var may be a DOM Node (e.g. a <b id="..."> counter) — it is moved into the {placeholder} slot.
 (() => {
   "use strict";
-  const KEY = "photobuth.lang";
+  const KEY = "photobooth.lang";
 
   const DICT = {
     en: {
+      "brand": "Photo Booth",
       "aria.preview": "Live camera preview",
       "aria.bg": "Background",
       "aria.lang": "Language",
@@ -17,15 +18,18 @@
       "kbd": "or press Space",
       "cd.3": "Get ready", "cd.2": "Look at the camera", "cd.1": "Smile",
       "processing": "Processing…",
-      "bg.raw": "No effect", "bg.transparent": "Transparent", "bg.sunset": "Sunset", "bg.ocean": "Ocean",
+      "bg.raw": "Original", "bg.transparent": "Transparent", "bg.sunset": "Sunset", "bg.ocean": "Ocean",
       "bg.neon": "Neon", "bg.studio": "Studio", "bg.white": "White", "bg.custom": "Custom",
       "review.label": "Review",
       "review.title": "Choose a background",
       "review.frame": "Event frame",
+      "review.cut": "Remove background",
+      "review.working": "Removing background…",
+      "review.cutErr": "Couldn't remove the background. You can keep the original photo.",
+      "review.keep": "Keep original",
       "review.retake": "Retake",
       "review.confirm": "Looks good — get QR",
-      "plate": "Scan to download",
-      "res.head.ok": "Your photo is ready",
+            "res.head.ok": "Your photo is ready",
       "res.head.fail": "Something went wrong",
       "res.up": "Preparing your download…",
       "res.slow": "Still working…",
@@ -55,6 +59,9 @@
       "drawer.camera": "Camera",
       "drawer.customBg": "Custom background",
       "drawer.chooseImg": "+ Choose an image",
+      "drawer.method": "Cut-out method",
+      "drawer.methodAuto": "Auto (AI, no green screen)",
+      "drawer.methodGreen": "Green screen",
       "drawer.tuning": "Green-screen tuning",
       "drawer.strength": "Key strength",
       "drawer.soft": "Edge softness",
@@ -77,6 +84,7 @@
       "tok.cancel": "Cancel", "tok.save": "Save",
     },
     "zh-CN": {
+      "brand": "拍照亭",
       "aria.preview": "实时摄像头画面",
       "aria.bg": "背景",
       "aria.lang": "语言",
@@ -91,10 +99,13 @@
       "review.label": "预览",
       "review.title": "选择背景",
       "review.frame": "活动相框",
+      "review.cut": "去除背景",
+      "review.working": "正在抠图…",
+      "review.cutErr": "抠图失败，您可以保留原图。",
+      "review.keep": "保留原图",
       "review.retake": "重拍",
       "review.confirm": "确认，生成二维码",
-      "plate": "扫码下载",
-      "res.head.ok": "照片已就绪",
+            "res.head.ok": "照片已就绪",
       "res.head.fail": "出了点问题",
       "res.up": "正在准备下载…",
       "res.slow": "仍在处理中…",
@@ -124,6 +135,9 @@
       "drawer.camera": "摄像头",
       "drawer.customBg": "自定义背景",
       "drawer.chooseImg": "＋ 选择图片",
+      "drawer.method": "抠图方式",
+      "drawer.methodAuto": "自动（AI，无需绿幕）",
+      "drawer.methodGreen": "绿幕",
       "drawer.tuning": "绿幕调节",
       "drawer.strength": "抠像强度",
       "drawer.soft": "边缘柔化",
@@ -194,10 +208,12 @@
     lang = l;
     try { localStorage.setItem(KEY, l); } catch { /* private mode */ }
     document.documentElement.lang = l;
+    document.title = t("brand");
     apply(); syncToggle(); listeners.forEach((f) => f(l));
   }
 
   document.documentElement.lang = lang;
+  document.title = t("brand");
   apply(); syncToggle();
   document.querySelectorAll("#lang-toggle [data-lang]").forEach((b) =>
     b.addEventListener("click", (e) => { setLang(b.dataset.lang); if (e.detail > 0) b.blur(); }));

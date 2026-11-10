@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="robots" content="noindex,nofollow">
   <meta name="theme-color" content="#c9ccd0">
-  <title>photo buth</title>
+  <title>Photo Booth</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body data-state="live">
@@ -15,7 +15,10 @@
       <div class="frame">
         <canvas id="preview" data-i18n-aria="aria.preview" aria-label="Live camera preview"></canvas>
 
-        <div class="brand"><h1>photo buth</h1></div>
+        <div class="brand">
+          <img class="logo" src="/logo.png" width="453" height="114" alt="Providence Presbyterian Church 长老会恩泽堂">
+          <h1 class="micro" data-i18n="brand">Photo Booth</h1>
+        </div>
 
         <div id="countdown" class="countdown" hidden aria-live="assertive">
           <span id="cd-num" class="cd-num"></span>
@@ -26,8 +29,6 @@
       </div>
     </section>
 
-    <div id="bg-gallery" class="gallery" role="radiogroup" data-i18n-aria="aria.bg" aria-label="Background"></div>
-
     <div class="shutter-bar">
       <button id="shutter" class="shutter" type="button" data-i18n="shutter">Take a picture</button>
       <p id="hint" class="hint kbd-hint" data-i18n="kbd">or press Space</p>
@@ -37,12 +38,22 @@
   <!-- REVIEW SCREEN (change background after the photo; nothing is uploaded yet) -->
   <main id="screen-review" class="screen review" hidden>
     <section class="review-photo">
-      <div class="print"><canvas id="review-canvas" data-i18n-aria="aria.reviewPhoto" aria-label="Your photo"></canvas></div>
+      <div class="print">
+        <div class="canvas-wrap">
+          <canvas id="review-canvas" data-i18n-aria="aria.reviewPhoto" aria-label="Your photo"></canvas>
+          <div id="cut-progress" class="cut-progress" hidden role="status"><span class="spin" aria-hidden="true"></span><span data-i18n="review.working">Removing background…</span></div>
+        </div>
+      </div>
     </section>
     <section class="review-side">
       <p class="micro" data-i18n="review.label">Review</p>
       <h2 data-i18n="review.title">Choose a background</h2>
       <div id="review-gallery" class="gallery review-gallery" role="radiogroup" data-i18n-aria="aria.bg" aria-label="Background"></div>
+      <button id="cut-toggle" class="toggle" type="button" aria-pressed="false" data-i18n="review.cut">Remove background</button>
+      <div id="cut-error" class="cut-error" role="alert" hidden>
+        <span data-i18n="review.cutErr">Couldn't remove the background. You can keep the original photo.</span>
+        <button id="cut-keep" type="button" class="secondary-sm" data-i18n="review.keep">Keep original</button>
+      </div>
       <label id="review-frame-wrap" class="switch" hidden><input id="review-frame" type="checkbox"> <span data-i18n="review.frame">Event frame</span></label>
       <p id="review-err" class="err" role="alert" hidden data-i18n="err.create">Could not create the photo. Please try again.</p>
       <div class="actions">
@@ -55,10 +66,7 @@
   <!-- RESULT SCREEN -->
   <main id="screen-result" class="screen result" hidden>
     <section class="result-photo">
-      <div class="plate">
-        <span class="micro" data-i18n="plate">Scan to download</span>
-        <svg class="arrow" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M12 4v14M6 12.5l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </div>
+      <div class="plate"><img src="/logo.png" width="453" height="114" alt="Providence Presbyterian Church 长老会恩泽堂"></div>
       <div class="slot" aria-hidden="true"></div>
       <div class="emerge"><img id="result-img" data-i18n-alt="aria.reviewPhoto" alt="Your photo"></div>
     </section>
@@ -121,7 +129,14 @@
         </label>
       </div>
 
-      <details class="field tuning" open>
+      <label class="field"><span data-i18n="drawer.method">Cut-out method</span>
+        <select id="cutout-method">
+          <option value="auto" data-i18n="drawer.methodAuto">Auto (AI, no green screen)</option>
+          <option value="green" data-i18n="drawer.methodGreen">Green screen</option>
+        </select>
+      </label>
+
+      <details id="tuning" class="field tuning" open>
         <summary data-i18n="drawer.tuning">Green-screen tuning</summary>
         <label><span class="lab"><span data-i18n="drawer.strength">Key strength</span> <output id="key-strength-val">50</output></span> <input id="key-strength" type="range" min="0" max="100" value="50"></label>
         <label><span class="lab"><span data-i18n="drawer.soft">Edge softness</span> <output id="key-soft-val">45</output></span> <input id="key-soft" type="range" min="5" max="80" value="45"></label>
@@ -162,6 +177,7 @@
 
   <script src="/vendor/qrcode.js"></script>
   <script src="/i18n.js"></script>
+  <script src="/segment.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>
