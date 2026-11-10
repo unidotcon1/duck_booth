@@ -323,7 +323,7 @@
     const vw = video.videoWidth, vh = video.videoHeight;
     if (!vw || !vh) return;
     const pw = Math.min(vw, 960), ph = Math.round(pw * vh / vw);
-    if (el.preview.width !== pw || el.preview.height !== ph) { el.preview.width = pw; el.preview.height = ph; }
+    if (el.preview.width !== pw || el.preview.height !== ph) { el.preview.width = pw; el.preview.height = ph; el.preview.parentElement.style.setProperty("--ar", String(pw / ph)); }
     renderFrame(pctx, pw, ph, { forExport: false });
   }
 
@@ -591,6 +591,8 @@
   })();
 
   document.addEventListener("keydown", (e) => {
+    // laptop: Enter on the result screen = "Next flock!"
+    if (e.key === "Enter" && state === "result" && !el.tokenDialog.open && !/^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(document.activeElement?.tagName || "")) { e.preventDefault(); backToLive(); return; }
     if (e.key === "Escape" && drawerOpen) { e.preventDefault(); closeDrawer(); return; }
     if (e.shiftKey && e.key.toLowerCase() === "s" && !drawerOpen && !/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName || "")) { e.preventDefault(); openDrawer(); }
   });
