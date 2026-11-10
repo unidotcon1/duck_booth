@@ -47,3 +47,7 @@ The key is **optional**. The switch is server-side, so nobody can change it from
 The app asks the server (`GET /api/config`) whether a key is required, so no change in the browser is needed. Restart `wrangler dev` after editing `.dev.vars`.
 
 **Warning:** with the key OFF on a public deployment, anyone who knows the URL can upload to your R2 bucket (the 5 MB cap, file-type checks and per-IP rate limit still apply). Prefer ON for real events, or put the site behind Cloudflare Access.
+
+## E. Background removal (no green screen needed)
+After a photo is taken, the review screen lets guests pick a new background. The person is cut out **in the browser** with an AI model (MediaPipe selfie segmenter, Apache-2.0), self-hosted in `public/vendor/mediapipe/` — nothing is sent to a third party. The first photo loads about 10 MB of model files (cached afterwards). A real green screen is still supported: operator drawer → *Cut-out method* → *Green screen*.
+To re-download the model files: `bash scripts/fetch-model.sh`.

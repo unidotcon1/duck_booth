@@ -1,4 +1,4 @@
-// photo buth — browser app. No framework, no inline script (CSP: script-src 'self').
+// Photo Booth — browser app. No framework, no inline script (CSP: script-src 'self').
 (() => {
   "use strict";
 
@@ -12,20 +12,20 @@
   const COUNTDOWN_SEC = 3;
   const UPLOAD_TRIES = 3;
   const RESET_MS = 45 * 1000, FAIL_RESET_MS = 30 * 1000;
-  const TOKEN_KEY = "photobuth.kioskToken";
-  const PREFS_KEY = "photobuth.prefs";
+  const TOKEN_KEY = "photobooth.kioskToken";
+  const PREFS_KEY = "photobooth.prefs";
 
   const { t, set: setI, clear: clearI, apply: applyI } = window.I18N;
   const $ = (id) => document.getElementById(id);
   const el = {
     live: $("screen-live"), review: $("screen-review"), result: $("screen-result"), preview: $("preview"),
     shutter: $("shutter"), countdown: $("countdown"), flash: $("flash"), camErr: $("camera-error"),
-    mode: $("mode"), camera: $("camera"), gallery: $("bg-gallery"), rGallery: $("review-gallery"), bgFile: $("bg-file"),
+    mode: $("mode"), camera: $("camera"), rGallery: $("review-gallery"), bgFile: $("bg-file"),
     strength: $("key-strength"), soft: $("key-soft"), despill: $("key-despill"),
     frameOn: $("frame-on"), frameText: $("frame-text"), frameFile: $("frame-file"), mirror: $("mirror"),
     resetToken: $("reset-token"), keyStatus: $("key-status"),
     rCanvas: $("review-canvas"), rFrame: $("review-frame"), rFrameWrap: $("review-frame-wrap"), rErr: $("review-err"),
-    confirm: $("confirm"), retake: $("retake"),
+    confirm: $("confirm"), cutToggle: $("cut-toggle"), cutProgress: $("cut-progress"), cutErr: $("cut-error"), cutKeep: $("cut-keep"), method: $("cutout-method"), tuning: $("tuning"), retake: $("retake"),
     img: $("result-img"), heading: $("result-title"), qr: $("qr"), qrStatus: $("qr-status"), qrText: $("qr-status-text"), qrDots: $("qr-dots"), qrHint: $("qr-hint"),
     retry: $("retry"), again: $("again"),
     idleWarn: $("idle-warning"), idleText: $("idle-text"),
@@ -56,7 +56,9 @@
   let video = null;
   let rafId = 0;
   let lastFrame = 0;
-  let bgId = prefs.bg || "gradient-sunset";
+  let bgId = "raw";          // chosen per photo on the review screen (starts at Original)
+  let removeOn = false;     // "Remove background" toggled while Original is selected → transparent preview
+  let cutStatus = "idle", cutId = 0, cutPromise = null;   // cut-out cache state for the current capture
   let customBg = null;      // { img: ImageBitmap }
   let customFrame = null;   // ImageBitmap
   let resultUrl = null;     // object URL for result <img>
@@ -76,6 +78,7 @@
   const capCut = document.createElement("canvas");
   let hasCap = false, capW = 0, capH = 0;
   const rctx = el.rCanvas.getContext("2d");
+  el.print = el.rCanvas.closest(".print");
 
   // ---------- backgrounds ----------
   const BACKGROUNDS = [
@@ -87,7 +90,8 @@
     { id: "solid-dark", k: "bg.studio", type: "solid", color: "#15151f" },
     { id: "solid-white", k: "bg.white", type: "solid", color: "#ffffff" },
   ];
-  const GALLERIES = [el.gallery, el.rGallery];
+  const GALLERIES = [el.rGallery];
+  const TRANSPARENT = { id: "transparent", type: "transparent" };
 
   function drawChecker(ctx, w, h) {
     const s = Math.max(8, Math.round(w / 40));
@@ -120,6 +124,9 @@
     if (bgId === "custom" && customBg) return { id: "custom", type: "image" };
     return BACKGROUNDS.find((b) => b.id === bgId) || BACKGROUNDS[2];
   }
+
+  function effBg() { const b = currentBg(); return b.type === "raw" && removeOn ? TRANSPARENT : b; }
+  const needCut = () => effBg().type !== "raw";
 
   function paintThumb(c, bg) {
     const x = c.getContext("2d");
@@ -168,8 +175,8 @@
     }
   }
   function selectBg(id) {
-    bgId = id; prefs.bg = id; savePrefs(); syncGallery();
-    if (state === "review" && hasCap) paintReview();   // instant re-composite at preview size
+    bgId = id; removeOn = false; syncGallery();
+    if (state === "review" && hasCap) refreshReview();   // instant re-composite at preview size
   }
 
   GALLERIES.forEach((g) => g.addEventListener("keydown", (e) => {
@@ -249,7 +256,8 @@
 
   // Live preview: render keyed subject of the current video frame.
   function renderFrame(ctx, w, h) {
-    const bg = currentBg();
+    // Auto mode: plain camera. Green-screen mode: keyed live preview over a fixed backdrop.
+    const bg = el.method.value === "green" ? BACKGROUNDS[2] : BACKGROUNDS[0];
     const mirror = el.mirror.checked;
     const vw = video.videoWidth, vh = video.videoHeight;
     if (!vw || !vh) return false;
@@ -343,6 +351,7 @@
       stream.getVideoTracks()[0].addEventListener("ended", () => showCamError("err.camLost"));
       await video.play();
       loop();
+      warmSegmenter();
     } catch (e) {
       const map = { NotAllowedError: "err.camDenied", NotFoundError: "err.camNotFound", NotReadableError: "err.camBusy" };
       if (map[e.name]) showCamError(map[e.name]); else showCamError("err.camGeneric", { m: e.message || e.name });
@@ -365,39 +374,76 @@
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   function freeCapture() {
+    cutId++; cutStatus = "idle"; cutPromise = null;   // discard any in-flight cut-out
     capRaw.width = capRaw.height = 0; capCut.width = capCut.height = 0;   // release backing stores
     hasCap = false;
   }
 
-  // Grab the current frame at full resolution: raw (mirrored if on) + keyed cut-out with alpha.
+  // Grab the current frame at full resolution (mirrored if on). The cut-out is produced separately.
   function captureFrame() {
     const vw = video.videoWidth, vh = video.videoHeight;
     if (!vw || !vh) return false;
     capW = Math.min(vw, CAPTURE_MAX_W); capH = Math.round(capW * vh / vw);
-    capRaw.width = capCut.width = capW; capRaw.height = capCut.height = capH;
+    capRaw.width = capW; capRaw.height = capH;
     const rc = capRaw.getContext("2d");
     rc.save();
     if (el.mirror.checked) { rc.translate(capW, 0); rc.scale(-1, 1); }
     rc.drawImage(video, 0, 0, capW, capH);
     rc.restore();
-    const cc = capCut.getContext("2d", { willReadFrequently: true });
-    cc.clearRect(0, 0, capW, capH);
-    cc.drawImage(capRaw, 0, 0);
-    const data = cc.getImageData(0, 0, capW, capH);
-    chromaKey(data, +el.strength.value, +el.soft.value, +el.despill.value);
-    cc.putImageData(data, 0, 0);
     hasCap = true;
     return true;
   }
 
+  function warmSegmenter() {
+    if (el.method.value === "auto" && window.Segmenter) window.Segmenter.load().catch(() => { /* surfaced when a cut-out is requested */ });
+  }
+
+  // Start (or restart) producing the cut-out for the current capture. Cached in capCut once ready.
+  function startCutout() {
+    const id = cutId;
+    if (el.method.value === "green") {   // chroma key: synchronous
+      capCut.width = capW; capCut.height = capH;
+      const cc = capCut.getContext("2d", { willReadFrequently: true });
+      cc.drawImage(capRaw, 0, 0);
+      const data = cc.getImageData(0, 0, capW, capH);
+      chromaKey(data, +el.strength.value, +el.soft.value, +el.despill.value);
+      cc.putImageData(data, 0, 0);
+      cutStatus = "ready"; return;
+    }
+    if (!window.Segmenter) { cutStatus = "error"; return; }
+    cutStatus = "working";
+    cutPromise = Promise.resolve()
+      .then(() => window.Segmenter.cutout(capRaw))
+      .then((c) => {
+        if (id !== cutId || !hasCap) { if (c && c.width) c.width = c.height = 0; return; }   // retaken meanwhile
+        capCut.width = capW; capCut.height = capH;
+        const x = capCut.getContext("2d"); x.clearRect(0, 0, capW, capH); x.drawImage(c, 0, 0, capW, capH);
+        c.width = c.height = 0;
+        cutStatus = "ready";
+      })
+      .catch(() => { if (id === cutId) cutStatus = "error"; })
+      .then(() => { if (id === cutId && state === "review") refreshReview(); });
+  }
+
   function compose(ctx, w, h, forExport, withFrame) {
-    const bg = currentBg();
+    const bg = effBg();
     if (bg.type === "raw") ctx.drawImage(capRaw, 0, 0, w, h);
     else { drawBackground(ctx, w, h, bg, forExport); ctx.drawImage(capCut, 0, 0, w, h); }
     drawFrame(ctx, w, h, withFrame);
   }
 
-  function paintReview() { compose(rctx, el.rCanvas.width, el.rCanvas.height, false, el.rFrame.checked); }
+  // Repaint the review canvas + overlays for the current background / cut-out status.
+  function refreshReview() {
+    if (!hasCap) return;
+    const need = needCut();
+    const cw = el.rCanvas.width, ch = el.rCanvas.height;
+    if (need && cutStatus === "ready") compose(rctx, cw, ch, false, el.rFrame.checked);
+    else { rctx.drawImage(capRaw, 0, 0, cw, ch); drawFrame(rctx, cw, ch, el.rFrame.checked); }   // original while waiting / on error
+    el.cutProgress.hidden = !(need && cutStatus === "working");
+    el.cutErr.hidden = !(need && cutStatus === "error");
+    el.cutToggle.setAttribute("aria-pressed", String(need));
+    el.print.classList.toggle("is-cut", need && cutStatus === "ready");
+  }
 
   async function takePicture() {
     if (state !== "live" || !video || !video.videoWidth) return;
@@ -429,7 +475,9 @@
     const frameShown = el.frameOn.checked;
     el.rFrame.checked = frameShown; el.rFrameWrap.hidden = !frameShown;
     el.rErr.hidden = true; el.confirm.disabled = el.retake.disabled = false;
-    paintReview();
+    bgId = "raw"; removeOn = false; syncGallery();
+    startCutout();   // kick off in the background so it is usually ready by the time a background is picked
+    refreshReview();
     showScreen("review"); setState("review");
     el.confirm.focus({ preventScroll: true });
   }
@@ -447,7 +495,7 @@
     const w = Math.max(2, Math.round(capW * scale)), h = Math.round(w * capH / capW);
     const c = document.createElement("canvas"); c.width = w; c.height = h;
     compose(c.getContext("2d"), w, h, true, el.rFrame.checked);
-    const png = currentBg().type === "transparent";
+    const png = effBg().type === "transparent";
     const blob = await new Promise((res) => c.toBlob(res, png ? "image/png" : "image/jpeg", 0.9));
     c.width = c.height = 0;           // release backing store immediately (Safari canvas memory cap)
     if (blob && blob.size > MAX_UPLOAD && scale > 0.4) return exportBlob(scale * 0.7);
@@ -457,6 +505,10 @@
   async function confirmPhoto() {
     if (state !== "review" || confirming || !hasCap) return;
     confirming = true; el.confirm.disabled = el.retake.disabled = true; el.rErr.hidden = true;
+    const id = cutId;
+    if (needCut() && cutStatus === "working") { refreshReview(); await cutPromise; }   // wait for the cut-out
+    if (id !== cutId || !hasCap) { confirming = false; return; }
+    if (needCut() && cutStatus !== "ready") { confirming = false; el.confirm.disabled = el.retake.disabled = false; refreshReview(); return; }
     let blob = null;
     try { blob = await exportBlob(1); } catch { blob = null; }
     confirming = false;
@@ -591,19 +643,22 @@
   el.retry.addEventListener("click", () => lastBlob && upload(lastBlob));
   el.confirm.addEventListener("click", confirmPhoto);
   el.retake.addEventListener("click", retake);
-  el.rFrame.addEventListener("change", () => { if (hasCap) paintReview(); });
+  el.rFrame.addEventListener("change", () => { if (hasCap) refreshReview(); });
+  el.cutToggle.addEventListener("click", () => { if (needCut()) selectBg("raw"); else { removeOn = true; refreshReview(); } });
+  el.cutKeep.addEventListener("click", () => selectBg("raw"));
 
   function backToLive() { location.reload(); }   // hard reset: guarantees no leaked canvases/URLs/streams
   el.again.addEventListener("click", backToLive);
 
   // ---------- settings wiring ----------
   function syncPrefs() {
-    prefs.mode = el.mode.value; prefs.mirror = el.mirror.checked; prefs.frameOn = el.frameOn.checked;
+    prefs.mode = el.mode.value; prefs.method = el.method.value; prefs.mirror = el.mirror.checked; prefs.frameOn = el.frameOn.checked;
     prefs.frameText = el.frameText.value; prefs.strength = el.strength.value; prefs.soft = el.soft.value; prefs.despill = el.despill.value;
     savePrefs();
   }
   function loadPrefs() {
     el.mode.value = prefs.mode || "test";
+    el.method.value = prefs.method === "green" ? "green" : "auto"; syncMethod();
     el.mirror.checked = prefs.mirror ?? el.mode.value === "test";
     el.frameOn.checked = !!prefs.frameOn; el.frameText.value = prefs.frameText || "";
     if (prefs.strength) el.strength.value = prefs.strength;
@@ -619,6 +674,8 @@
     SLIDERS.forEach(([n, , d]) => { n.value = String(d); });
     paintSliders(); syncPrefs();
   });
+  function syncMethod() { el.tuning.hidden = el.method.value !== "green"; }
+  el.method.addEventListener("change", () => { syncMethod(); syncPrefs(); warmSegmenter(); });
   el.mode.addEventListener("change", () => { el.mirror.checked = el.mode.value === "test"; syncPrefs(); startCamera(null); });
   el.camera.addEventListener("change", () => startCamera(el.camera.value));
   el.shutter.addEventListener("click", takePicture);

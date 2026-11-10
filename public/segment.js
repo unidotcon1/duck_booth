@@ -94,7 +94,7 @@
 
   async function cutout(source, opts) {
     opts = opts || {};
-    var low = opts.low != null ? opts.low : 0.35, high = opts.high != null ? opts.high : 0.75;
+    var low = opts.low != null ? opts.low : 0.45, high = opts.high != null ? opts.high : 0.85;
     var feather = opts.feather != null ? opts.feather : 1;          // box-blur radius in px (0 = off)
     var despk = opts.despeckle !== false;
     await load();
