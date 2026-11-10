@@ -4,24 +4,81 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="robots" content="noindex,nofollow">
-  <meta name="theme-color" content="#0e0e14">
+  <meta name="theme-color" content="#0b1020">
   <title>photo buth</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
-<body>
-  <!-- LIVE SCREEN -->
-  <main id="screen-live" class="screen">
+<body data-state="live">
+  <!-- LIVE SCREEN (guest-facing: camera, backgrounds, shutter) -->
+  <main id="screen-live" class="screen kiosk">
     <section class="stage">
       <canvas id="preview" aria-label="Live camera preview"></canvas>
-      <div id="countdown" class="countdown" hidden aria-live="assertive"></div>
+
+      <div class="brand">
+        <svg class="logo" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+          <path d="M9 27 3 20l9 2z" fill="#ffb300"/>
+          <ellipse cx="23" cy="32" rx="18" ry="12" fill="#ffd54a"/>
+          <circle cx="30" cy="17" r="11" fill="#ffd54a"/>
+          <ellipse cx="20" cy="34" rx="9" ry="6" fill="#ffb300"/>
+          <path d="M39 15.5 47.5 19 39 22.5z" fill="#ff7a00"/>
+          <circle cx="32.5" cy="14.5" r="2" fill="#0b1020"/>
+        </svg>
+        <h1>photo buth</h1>
+      </div>
+
+      <div id="countdown" class="countdown" hidden aria-live="assertive">
+        <span id="cd-num" class="cd-num"></span>
+        <span id="cd-sub" class="cd-sub"></span>
+      </div>
       <div id="flash" class="flash" hidden></div>
       <div id="camera-error" class="camera-error" hidden role="alert"></div>
-      <button id="shutter" class="shutter" type="button">📸 Take Picture</button>
     </section>
 
-    <aside class="panel" aria-label="Settings">
-      <h1>photo buth</h1>
+    <div id="bg-gallery" class="gallery" role="radiogroup" aria-label="Pick a background"></div>
 
+    <div class="shutter-bar">
+      <button id="shutter" class="shutter" type="button"><span class="cam" aria-hidden="true">📸</span> Quack a pose!</button>
+      <p id="hint" class="hint">Tap the button. The duck does the rest.</p>
+    </div>
+  </main>
+
+  <!-- RESULT SCREEN -->
+  <main id="screen-result" class="screen result" hidden>
+    <section class="result-photo"><img id="result-img" alt="Your photo"></section>
+    <section class="result-side">
+      <h2>Scan to grab your photo</h2>
+      <div id="qr" class="qr" aria-live="polite"><p id="qr-status">Waddling your photo to the cloud…<span class="dots" aria-hidden="true"><i></i><i></i><i></i></span></p></div>
+      <p id="qr-hint" class="hint"></p>
+      <div class="actions">
+        <button id="again" type="button" class="primary">Next flock!</button>
+        <button id="retry" type="button" class="secondary" hidden>Try again</button>
+      </div>
+      <p id="reset-note" class="reset-note" hidden>
+        <svg id="reset-ring" class="ring" viewBox="0 0 36 36" aria-hidden="true" focusable="false">
+          <circle class="track" cx="18" cy="18" r="15"/>
+          <circle class="bar" cx="18" cy="18" r="15"/>
+        </svg>
+        <span>Next guest in <b id="again-sec">45</b>s &middot; tap anywhere to stay</span>
+      </p>
+    </section>
+  </main>
+
+  <div id="idle-warning" class="toast" hidden role="status">Still there? Duck is napping in <b id="idle-sec">20</b>s. Tap to stay.</div>
+
+  <!-- OPERATOR ACCESS (invisible hotspot; gear only with ?admin=1) -->
+  <div id="admin-hold" class="admin-hold" aria-hidden="true"></div>
+  <button id="admin-open" class="admin-open" type="button" aria-label="Open operator settings" aria-controls="admin-drawer" hidden>
+    <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M19.4 13a7.9 7.9 0 0 0 0-2l2.1-1.6a.5.5 0 0 0 .1-.6l-2-3.5a.5.5 0 0 0-.6-.2l-2.5 1a7.6 7.6 0 0 0-1.7-1l-.4-2.6a.5.5 0 0 0-.5-.4h-4a.5.5 0 0 0-.5.4L9 5.5a7.6 7.6 0 0 0-1.7 1l-2.5-1a.5.5 0 0 0-.6.2l-2 3.5a.5.5 0 0 0 .1.6L4.6 11a7.9 7.9 0 0 0 0 2l-2.1 1.6a.5.5 0 0 0-.1.6l2 3.5c.1.2.4.3.6.2l2.5-1c.5.4 1.1.7 1.7 1l.4 2.6c0 .2.3.4.5.4h4c.2 0 .5-.2.5-.4l.4-2.6c.6-.3 1.2-.6 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5a.5.5 0 0 0-.1-.6zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z"/></svg>
+  </button>
+
+  <div id="admin-scrim" class="scrim"></div>
+  <aside id="admin-drawer" class="drawer" role="dialog" aria-modal="true" aria-labelledby="admin-title" inert>
+    <header class="drawer-head">
+      <h2 id="admin-title">Operator settings</h2>
+      <button id="admin-close" class="close" type="button" aria-label="Close settings">&times;</button>
+    </header>
+
+    <div class="drawer-body">
       <label class="field">Mode
         <select id="mode">
           <option value="test">Testing — laptop webcam</option>
@@ -33,15 +90,14 @@
         <select id="camera"></select>
       </label>
 
-      <fieldset class="field">
-        <legend>Background</legend>
-        <div id="bg-gallery" class="gallery" role="radiogroup" aria-label="Background"></div>
-        <label class="file">＋ Custom image
+      <div class="field">
+        <span class="legend">Custom background</span>
+        <label class="file">＋ Choose an image
           <input id="bg-file" type="file" accept="image/jpeg,image/png,image/webp">
         </label>
-      </fieldset>
+      </div>
 
-      <details class="field" open>
+      <details class="field tuning" open>
         <summary>Green-screen tuning</summary>
         <label>Key strength <input id="key-strength" type="range" min="0" max="100" value="50"></label>
         <label>Edge softness <input id="key-soft" type="range" min="5" max="80" value="45"></label>
@@ -57,26 +113,10 @@
         </label>
       </fieldset>
 
-      <label class="inline"><input id="mirror" type="checkbox"> Mirror image</label>
+      <label class="inline field"><input id="mirror" type="checkbox"> Mirror image</label>
       <button id="reset-token" class="link" type="button">Reset kiosk key</button>
-    </aside>
-  </main>
-
-  <!-- RESULT SCREEN -->
-  <main id="screen-result" class="screen result" hidden>
-    <section class="result-photo"><img id="result-img" alt="Your photo"></section>
-    <section class="result-side">
-      <h2>Scan to download</h2>
-      <div id="qr" class="qr" aria-live="polite"><p id="qr-status">Uploading…</p></div>
-      <p id="qr-hint" class="hint"></p>
-      <div class="row">
-        <button id="retry" type="button" hidden>Retry upload</button>
-        <button id="again" type="button" class="primary">Done — take another</button>
-      </div>
-    </section>
-  </main>
-
-  <div id="idle-warning" class="toast" hidden role="status">Still there? Resetting in <b id="idle-sec">20</b>s — tap to stay.</div>
+    </div>
+  </aside>
 
   <dialog id="token-dialog">
     <form method="dialog" id="token-form">
