@@ -26,7 +26,7 @@
     resetToken: $("reset-token"), keyStatus: $("key-status"),
     rCanvas: $("review-canvas"), rFrame: $("review-frame"), rFrameWrap: $("review-frame-wrap"), rErr: $("review-err"),
     confirm: $("confirm"), qrWaitSel: $("qr-wait"), fGallery: $("filter-gallery"), modeToggle: $("mode-toggle"), shotInd: $("shot-ind"), shotThumbs: $("shot-thumbs"),
-    boothMode: $("booth-mode"), stripTools: $("strip-tools"), layoutChips: $("layout-chips"), reorder: $("reorder-row"), dateChip: $("chip-date"), timeChip: $("chip-time"), printBtn: $("print"), showPrint: $("show-print"), shotsSel: $("shots-per-strip"), layoutSel: $("strip-layout"),
+    boothMode: $("booth-mode"), stripTools: $("strip-tools"), paperChips: $("paper-chips"), layoutChips: $("layout-chips"), reorder: $("reorder-row"), dateChip: $("chip-date"), timeChip: $("chip-time"), printBtn: $("print"), showPrint: $("show-print"), shotsSel: $("shots-per-strip"), layoutSel: $("strip-layout"),
     stLayer: $("sticker-layer"), stTray: $("sticker-tray"), stBox: $("sticker-box"), rFilterName: $("review-filter-name"), cutText: $("cut-progress-text"),
     cutToggle0: null, scale: $("ui-scale"), scaleVal: $("ui-scale-val"), scaleReset: $("ui-scale-reset"), cutToggle: $("cut-toggle"), cutProgress: $("cut-progress"), cutErr: $("cut-error"), cutKeep: $("cut-keep"), method: $("cutout-method"), tuning: $("tuning"), retake: $("retake"),
     img: $("result-img"), heading: $("result-title"), qr: $("qr"), qrStatus: $("qr-status"), qrText: $("qr-status-text"), qrDots: $("qr-dots"), qrHint: $("qr-hint"),
@@ -621,6 +621,8 @@
     }
     scene = { W, H, rects, paper: true, footer };
   }
+  const PAPERS = [["white", "#ffffff", 0], ["black", "#141414", 1], ["cream", "#f6edd9", 0], ["pink", "#f7d4de", 0], ["sky", "#cfe6f7", 0], ["sage", "#d3e2cc", 0], ["lavender", "#e1d8f2", 0]];
+  const paper = () => PAPERS.find((p) => p[0] === prefs.paper) || PAPERS[0];
   const crest = new Image(); crest.src = "/logo-crest.png";
 
   function drawFooter(ctx, k) {
@@ -631,12 +633,17 @@
       prefs.time && now.toLocaleTimeString(lg, { hour: "2-digit", minute: "2-digit" })].filter(Boolean).join("  ·  ");
     const ch = h * 0.5;
     ctx.save();
-    ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#222";
-    if (crest.complete && crest.naturalWidth) ctx.drawImage(crest, (scene.W * k - ch * crest.naturalWidth / crest.naturalHeight) / 2, y0 + h * 0.06, ch * crest.naturalWidth / crest.naturalHeight, ch);
+    const dark = !!paper()[2];
+    ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = dark ? "#f2f2f2" : "#222";
+    if (crest.complete && crest.naturalWidth) {
+      const cw = ch * crest.naturalWidth / crest.naturalHeight, cx = (scene.W * k - cw) / 2, cy = y0 + h * 0.06;
+      if (dark) { ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.roundRect(cx - ch * 0.12, cy - ch * 0.08, cw + ch * 0.24, ch + ch * 0.16, ch * 0.14); ctx.fill(); ctx.fillStyle = "#f2f2f2"; }
+      ctx.drawImage(crest, cx, cy, cw, ch);
+    }
     const fs = h * 0.15;
     ctx.font = `600 ${fs}px system-ui, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif`;
     ctx.fillText(text || "", scene.W * k / 2, y0 + h * 0.70);
-    ctx.font = `400 ${fs * 0.8}px system-ui, "PingFang SC", "Microsoft YaHei", sans-serif`; ctx.fillStyle = "#555";
+    ctx.font = `400 ${fs * 0.8}px system-ui, "PingFang SC", "Microsoft YaHei", sans-serif`; ctx.fillStyle = dark ? "#c8c8c8" : "#555";
     if (stamp) ctx.fillText(stamp, scene.W * k / 2, y0 + h * 0.88);
     ctx.restore();
   }
@@ -647,7 +654,7 @@
     ctx.save(); ctx.beginPath(); ctx.rect(r.x, r.y, r.w, r.h); ctx.clip();
     if (useCut && s.cut) {
       ctx.translate(r.x, r.y);
-      if (scene.paper && forExport && bg.type === "transparent") { ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, r.w, r.h); }
+      if (scene.paper && forExport && bg.type === "transparent") { ctx.fillStyle = paper()[1]; ctx.fillRect(0, 0, r.w, r.h); }
       else drawBackground(ctx, r.w, r.h, bg, forExport);
       ctx.translate(-r.x, -r.y);
       drawFiltered(ctx, s.cut, ...coverSrc(s.cut, r), r.x, r.y, r.w, r.h, f);
@@ -656,7 +663,7 @@
   }
 
   function composeScene(ctx, k, forExport, useCut) {
-    if (scene.paper) { ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, scene.W * k, scene.H * k); }
+    if (scene.paper) { ctx.fillStyle = paper()[1]; ctx.fillRect(0, 0, scene.W * k, scene.H * k); }
     scene.rects.forEach((r, i) => paintShot(ctx, shots[i], { x: r.x * k, y: r.y * k, w: r.w * k, h: r.h * k }, forExport, useCut));
     if (scene.paper) { if (scene.footer) drawFooter(ctx, k); }
     else drawFrame(ctx, scene.W * k, scene.H * k, el.rFrame.checked);
@@ -695,6 +702,7 @@
     const grid = shots.length === 4 && prefs.layout === "grid";
     el.layoutChips.querySelector('[data-layout="grid"]').hidden = shots.length !== 4;
     el.layoutChips.querySelectorAll("[data-layout]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.layout === (grid ? "grid" : "vertical"))));
+    el.paperChips.querySelectorAll("[data-paper]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.paper === paper()[0])));
     el.dateChip.setAttribute("aria-pressed", String(!!prefs.date)); el.timeChip.setAttribute("aria-pressed", String(!!prefs.time));
     el.reorder.textContent = "";
     shots.forEach((sh, i) => {
@@ -706,6 +714,7 @@
   el.layoutChips.querySelectorAll("[data-layout]").forEach((b) => b.addEventListener("click", () => {
     prefs.layout = b.dataset.layout; el.layoutSel.value = prefs.layout; savePrefs(); if (hasCap) layoutReview();
   }));
+  el.paperChips.querySelectorAll("[data-paper]").forEach((b) => b.addEventListener("click", () => { prefs.paper = b.dataset.paper; savePrefs(); if (hasCap) layoutReview(); }));
   [[el.dateChip, "date"], [el.timeChip, "time"]].forEach(([b, k]) => b.addEventListener("click", () => { prefs[k] = !prefs[k]; savePrefs(); if (hasCap) layoutReview(); }));
   // drag & drop reordering (pointer events: mouse + touch)
   (() => {
