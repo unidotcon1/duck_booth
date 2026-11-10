@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5b6bd6"/><stop offset=".55" stop-color="#ff8a5c"/><stop offset="1" stop-color="#ffd36b"/></linearGradient>
+    <linearGradient id="hill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f9e6a"/><stop offset="1" stop-color="#1b6b4a"/></linearGradient>
+    <radialGradient id="sun" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff3b0"/><stop offset="1" stop-color="#ffd24a"/></radialGradient>
+  </defs>
+  <rect width="400" height="400" fill="url(#sky)"/>
+  <circle cx="310" cy="130" r="48" fill="url(#sun)"/>
+  <path d="M0 270 Q90 200 190 250 T400 235 V400 H0Z" fill="#7a4fb0"/>
+  <path d="M0 310 Q120 250 230 295 T400 285 V400 H0Z" fill="url(#hill)"/>
+  <g fill="#e8365d"><circle cx="40" cy="330" r="9"/><circle cx="70" cy="345" r="8"/><circle cx="355" cy="320" r="9"/></g>
+  <g fill="#ffd24a"><circle cx="95" cy="335" r="7"/><circle cx="330" cy="345" r="8"/></g>
+  <!-- figure -->
+  <path d="M110 400 Q115 318 200 312 Q285 318 290 400Z" fill="#2b4fa8"/>
+  <path d="M160 322 L200 372 L240 322 Q200 308 160 322Z" fill="#f4f1e8"/>
+  <rect x="180" y="276" width="40" height="46" rx="14" fill="#d9965f"/>
+  <ellipse cx="200" cy="222" rx="62" ry="72" fill="#e8a870"/>
+  <path d="M136 214 Q130 140 200 138 Q272 140 264 214 Q252 170 200 168 Q148 170 136 214Z" fill="#3a2418"/>
+  <ellipse cx="174" cy="226" rx="8" ry="10" fill="#fff"/><ellipse cx="226" cy="226" rx="8" ry="10" fill="#fff"/>
+  <circle cx="175" cy="228" r="5" fill="#3a2418"/><circle cx="225" cy="228" r="5" fill="#3a2418"/>
+  <path d="M170 262 Q200 290 230 262 Q200 274 170 262Z" fill="#b8324a"/>
+  <ellipse cx="156" cy="252" rx="12" ry="8" fill="#f08a7a" opacity=".6"/><ellipse cx="244" cy="252" rx="12" ry="8" fill="#f08a7a" opacity=".6"/>
+  <path d="M162 205 Q174 198 186 205 M214 205 Q226 198 238 205" stroke="#3a2418" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <!-- hat + balloon -->
+  <path d="M146 150 Q200 96 254 150Z" fill="#e8365d"/><rect x="140" y="146" width="120" height="12" rx="6" fill="#ffd24a"/>
+  <ellipse cx="338" cy="215" rx="26" ry="32" fill="#35c4d8"/><path d="M338 247 Q330 300 345 340" stroke="#fff" stroke-width="3" fill="none"/>
+  <ellipse cx="328" cy="203" rx="7" ry="10" fill="#fff" opacity=".45"/>
+</svg>

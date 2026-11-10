@@ -390,7 +390,7 @@
       const btn = makeThumb(f.id, f.k, (id) => selectFilter(id));
       el.fGallery.append(btn);
     }
-    syncFilterGallery(); refreshSwatches();
+    syncFilterGallery(); paintSwatches(); loadSwatchAssets();
   }
   function syncFilterGallery() {
     [...el.fGallery.children].forEach((b) => {
@@ -398,23 +398,29 @@
       b.setAttribute("aria-checked", String(on)); b.tabIndex = on ? 0 : -1;
     });
   }
-  function selectFilter(id) { filterId = id; prefs.filter = id; savePrefs(); syncFilterGallery(); refreshSwatches(); }
-  // Tiny live-looking swatches: the camera frame (square crop) with each chip's filter, ~3 fps.
-  function refreshSwatches() {
-    if (!video || !video.videoWidth) {
-      for (const b of el.fGallery.children) { const x = b.firstChild.getContext("2d"); const g = x.createLinearGradient(0, 0, 64, 64); g.addColorStop(0, "#c9ccd1"); g.addColorStop(1, "#8b9098"); x.fillStyle = g; x.fillRect(0, 0, 64, 64); }
-      return;
-    }
-    const vw = video.videoWidth, vh = video.videoHeight, side = Math.min(vw, vh);
-    const sx = (vw - side) / 2, sy = (vh - side) / 2;
+  function selectFilter(id) { filterId = id; prefs.filter = id; savePrefs(); syncFilterGallery(); }
+  // Static chip swatches: one sample picture per chip, drawn once (no camera, no timers).
+  const sample = new Image(); let overrides = {};
+  const overrideImgs = {};
+  function paintSwatches() {
     for (const b of el.fGallery.children) {
-      const c = b.firstChild, x = c.getContext("2d");
-      x.save(); if (el.mirror.checked) { x.translate(64, 0); x.scale(-1, 1); }
-      drawFiltered(x, video, sx, sy, side, side, 0, 0, 64, 64, filterById(b.dataset.id));
-      x.restore();
+      const f = filterById(b.dataset.id), x = b.firstChild.getContext("2d");
+      x.clearRect(0, 0, 64, 64);
+      const ov = overrideImgs[f.id];
+      if (ov) { const r = { x: 0, y: 0, w: 64, h: 64 }; x.drawImage(ov, ...coverSrc(ov, r), 0, 0, 64, 64); }
+      else if (sample.complete && sample.naturalWidth) drawFiltered(x, sample, 0, 0, sample.naturalWidth, sample.naturalHeight, 0, 0, 64, 64, f);
+      else { const g = x.createLinearGradient(0, 0, 64, 64); g.addColorStop(0, "#c9ccd1"); g.addColorStop(1, "#8b9098"); x.fillStyle = g; x.fillRect(0, 0, 64, 64); }
     }
   }
-  setInterval(() => { if (state === "live" && !drawerOpen && !document.hidden) refreshSwatches(); }, 330);
+  function refreshSwatches() { paintSwatches(); }
+  async function loadSwatchAssets() {
+    try { const r = await fetch("/filters/overrides.json", { cache: "no-store" }); if (r.ok) overrides = await r.json(); } catch { /* none */ }
+    await Promise.all(Object.entries(overrides || {}).filter(([id, f]) => FILTER_LIST.some((x) => x.id === id) && typeof f === "string").map(([id, f]) => new Promise((res) => {
+      const im = new Image(); im.onload = () => { overrideImgs[id] = im; res(); }; im.onerror = () => res(); im.src = "/filters/" + encodeURIComponent(f);
+    })));
+    paintSwatches();
+  }
+  sample.onload = paintSwatches; sample.src = "/filters/sample.svg";
 
   // Live preview: plain camera (Auto) or keyed over a fixed backdrop (Green screen), with the chosen filter.
   function renderFrame(ctx, w, h) {
@@ -1108,6 +1114,12 @@
     }
     if (e.shiftKey && e.key.toLowerCase() === "s" && !drawerOpen && !typing) { e.preventDefault(); openDrawer(); }
   });
+
+  // busy cursor: processing, cutting out, uploading
+  setInterval(() => {
+    const busy = state === "processing" || uploading || confirming || !el.cutProgress.hidden;
+    if (document.body.classList.contains("busy") !== busy) document.body.classList.toggle("busy", busy);
+  }, 150);
 
   // ---------- 3-minute inactivity reset ----------
   let lastActivity = Date.now();
