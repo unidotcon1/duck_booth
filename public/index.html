@@ -67,9 +67,23 @@
       <p class="micro" data-i18n="review.label">Review</p>
       <h2 data-i18n="review.title">Choose a background</h2>
       <div class="review-scroll">
+      <details id="sec-bg" class="rv-sec" open>
+        <summary><span data-i18n="rv.secBg">Background</span><span id="sec-bg-val" class="rv-val"></span></summary>
+        <div class="rv-body">
       <div id="review-gallery" class="gallery review-gallery" role="radiogroup" data-i18n-aria="aria.bg" aria-label="Background"></div>
       <p id="review-bg-name" class="gallery-name" aria-live="polite"></p>
       <p class="micro filter-readout"><span data-i18n="review.filterLbl">Filter</span>: <span id="review-filter-name" data-i18n="f.none">Original</span></p>
+      <button id="cut-toggle" class="toggle" type="button" aria-pressed="false" data-i18n="review.cut">Remove background</button>
+      <div id="cut-error" class="cut-error" role="alert" hidden>
+        <span data-i18n="review.cutErr">Couldn't remove the background. You can keep the original photo.</span>
+        <button id="cut-keep" type="button" class="secondary-sm" data-i18n="review.keep">Keep original</button>
+      </div>
+      <label id="review-frame-wrap" class="switch" hidden><input id="review-frame" type="checkbox"> <span data-i18n="review.frame">Event frame</span></label>
+        </div>
+      </details>
+      <details id="sec-strip" class="rv-sec" open>
+        <summary><span data-i18n="rv.secStrip">Strip options</span></summary>
+        <div class="rv-body">
       <div id="strip-tools" class="strip-tools" hidden>
         <div id="layout-chips" class="chips" role="group" data-i18n-aria="strip.layout">
           <button type="button" data-layout="vertical" aria-pressed="true" data-i18n="drawer.layoutV">Vertical strip</button>
@@ -84,18 +98,18 @@
         <p class="note" data-i18n="strip.reorder">Drag photos to reorder</p>
         <div id="reorder-row" class="reorder-row"></div>
       </div>
-      <button id="cut-toggle" class="toggle" type="button" aria-pressed="false" data-i18n="review.cut">Remove background</button>
-      <div id="cut-error" class="cut-error" role="alert" hidden>
-        <span data-i18n="review.cutErr">Couldn't remove the background. You can keep the original photo.</span>
-        <button id="cut-keep" type="button" class="secondary-sm" data-i18n="review.keep">Keep original</button>
-      </div>
-      <label id="review-frame-wrap" class="switch" hidden><input id="review-frame" type="checkbox"> <span data-i18n="review.frame">Event frame</span></label>
+        </div>
+      </details>
+      <details id="sec-stk" class="rv-sec">
+        <summary><span data-i18n="rv.secStk">Stickers</span><span id="sec-stk-val" class="rv-val" hidden></span></summary>
+        <div class="rv-body">
       <div id="sticker-box" class="sticker-box">
-        <p class="micro" data-i18n="st.title">Stickers</p>
         <p class="note" data-i18n="st.hint">Drag stickers onto your photo</p>
         <div id="sticker-tray" class="sticker-tray"></div>
         <p class="note" data-i18n="st.hint2">Tap a sticker to adjust · ✕ to delete</p>
       </div>
+        </div>
+      </details>
       <p id="review-err" class="err" role="alert" hidden data-i18n="err.create">Could not create the photo. Please try again.</p>
             </div>
       <div class="actions sticky-actions">

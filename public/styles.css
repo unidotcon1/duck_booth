@@ -486,3 +486,27 @@ body[data-state="live"] .privacy-link,body[data-state="result"] .privacy-link{di
 .pv-body:focus-visible{outline:none}
 .live-glow{display:none;visibility:visible}
 .live-glow.on{display:block}
+
+/* ---------- review panel: collapsible sections ---------- */
+.rv-sec{width:100%;flex:none;border:1px solid var(--line-soft);border-radius:var(--r);background:rgb(255 255 255/.5);overflow:hidden}
+.rv-sec>summary{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);min-height:52px;padding:0 var(--s4);list-style:none;cursor:var(--cur-pointer,pointer);
+  font-weight:600;letter-spacing:.06em;text-transform:uppercase;font-size:calc(var(--ui-scale) * 13px);color:var(--ink);user-select:none}
+.rv-sec>summary::-webkit-details-marker{display:none}
+.rv-sec>summary::after{content:"";order:3;width:10px;height:10px;flex:none;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg) translate(-2px,-2px);transition:transform .2s ease}
+.rv-sec[open]>summary::after{transform:rotate(-135deg) translate(-2px,-2px)}
+.rv-sec[open]>summary{border-bottom:1px solid var(--line-soft);background:rgb(255 255 255/.6)}
+.rv-sec>summary:hover{background:rgb(255 255 255/.8)}
+.rv-sec>summary:focus-visible{outline:3px solid var(--ink);outline-offset:-3px}
+.rv-val{margin-left:auto;margin-right:var(--s2);font-weight:500;letter-spacing:.02em;text-transform:none;color:var(--text-mut);max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rv-val:not(:empty){}
+.rv-body{display:flex;flex-direction:column;align-items:center;gap:var(--s4);padding:var(--s3)}
+.rv-body>*{max-width:100%}
+.rv-sec:has(> .rv-body > #strip-tools[hidden]),.rv-sec:has(> .rv-body > #sticker-box[hidden]){display:none}
+/* sticker section: always room for at least 3 full rows */
+.review-scroll .sticker-box{flex:none;min-height:0;width:100%}
+.review-scroll .sticker-tray{max-height:none;min-height:0;flex:none;overflow:visible}
+.review-scroll .stk-tray{overflow:visible}
+.review-scroll .stk-tabs{flex-wrap:wrap;overflow:visible;justify-content:center;padding:2px 0 var(--s2)}
+.review-scroll .stk-grid{--stk-row:88px;flex:none;min-height:calc(3 * var(--stk-row) + 2 * var(--s2));max-height:calc(3.4 * var(--stk-row) + 3 * var(--s2));overflow-y:auto;
+  scrollbar-width:thin;scrollbar-color:#8b9098 transparent;justify-content:center}
+@media (prefers-reduced-motion:reduce){.rv-sec>summary::after{transition:none}}
