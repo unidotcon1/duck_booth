@@ -204,6 +204,7 @@
   function updateNames() {
     const a = document.getElementById("review-bg-name"), f = document.getElementById("filter-name");
     if (a) a.textContent = selName(el.rGallery);
+    const v = document.getElementById("sec-bg-val"); if (v) v.textContent = selName(el.rGallery);
     if (f) f.textContent = selName(el.fGallery);
   }
   window.I18N.onChange(() => updateNames());
@@ -926,6 +927,7 @@
     syncGallery(); ensureFileBg(bgId).then(() => { if (state === "review" && hasCap) refreshReview(); });
     startCutouts();   // kick off in the background so it is usually ready by the time a background is picked
     stopStream();   // PERFORMANCE + PRIVACY: release the camera (no decoding, camera light off) while the guest edits
+    resetReviewSections();
     showScreen("review"); setState("review");
     layoutReview();
     if (ST) { ST.setEnabled(true); ST.load().catch(() => {}); }
@@ -1309,6 +1311,18 @@
     window.I18N.onChange(() => { if (input.value.trim()) filter(); });   // keep results right after a language switch
   })();
 
+  // ---------- review panel: collapsible Background / Strip options / Stickers ----------
+  const rvBg = $("sec-bg"), rvStrip = $("sec-strip"), rvStk = $("sec-stk");
+  function resetReviewSections() {   // each new photo starts the same way: Background open, the rest folded
+    rvBg.open = true; rvStrip.open = false; rvStk.open = false;
+  }
+  rvStk.addEventListener("toggle", () => {   // opening Stickers folds the others away if there is not room for 3 full rows
+    if (!rvStk.open) return;
+    const sc = document.querySelector(".review-scroll");
+    if (sc.scrollHeight > sc.clientHeight + 4) { rvBg.open = false; rvStrip.open = false; }
+    rvStk.scrollIntoView({ block: "nearest" });
+  });
+
   // ---------- optional stickers (operator can switch groups on/off) ----------
   function buildOptStickers() {
     if (!ST || !ST.listOptionalGroups || !ST.setEnabledGroups) return;
@@ -1484,7 +1498,7 @@
     const m = location.hash.match(/[#&]k=([^&]+)/);
     if (m) { store.set(TOKEN_KEY, decodeURIComponent(m[1])); history.replaceState(null, "", location.pathname + location.search); }
     loadPrefs(); buildGallery(); buildFilterGallery(); keepAwake(); paintKeyStatus(); loadManifest();
-    if (ST) { try { ST.init({ layer: el.stLayer, tray: el.stTray, getLang: () => window.I18N.getLang(), onchange() {} }); ST.load().then(buildOptStickers).catch(() => {}); if (ST.mountManager) ST.mountManager($("stk-manager")); window.I18N.onChange(() => { if (ST.listOptionalGroups) buildOptStickers(); }); } catch { /* stickers unavailable */ } }
+    if (ST) { try { ST.init({ layer: el.stLayer, tray: el.stTray, getLang: () => window.I18N.getLang(), onchange() { const v = document.getElementById("sec-stk-val"), n = ST.count(); v.textContent = n ? String(n) : ""; v.hidden = !n; } }); ST.load().then(buildOptStickers).catch(() => {}); if (ST.mountManager) ST.mountManager($("stk-manager")); window.I18N.onChange(() => { if (ST.listOptionalGroups) buildOptStickers(); }); } catch { /* stickers unavailable */ } }
     el.stBox.hidden = !ST;
     setI(el.qrText, "res.up"); el.qrDots.hidden = false;
     idleTimer = setTimeout(idleTick, 1000);

@@ -56,7 +56,7 @@ Next time you only need `cd duck_booth` and `npm start`. To update later: `git p
 | Choose a filter | Tap one on the right **before** taking the photo |
 | Single photo or strip | Toggle **Single / Photo Strip** on the camera |
 | Stop a countdown | Press **Esc** (or the Cancel button) |
-| After the photo | Pick a background (the person is cut out automatically), add stickers, then **Looks good — get QR** |
+| After the photo | Pick a background (the person is cut out automatically), add stickers, then **Looks good — get QR**. The **Background**, **Strip options** and **Stickers** sections fold open and closed — opening Stickers makes room for at least 3 full rows |
 | Save to a phone | Guest scans the QR code → **see "Phones can't scan localhost" below** |
 | Send the link by WhatsApp | Result screen → **Send to phone** → type a mobile number → **Open WhatsApp** (see below) |
 | Open settings | The round **gear** button (top right), or press **Shift+S** |
