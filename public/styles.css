@@ -464,3 +464,25 @@ mark.sf{background:#ffe08a;color:inherit;border-radius:3px;padding:0 1px}
 .ph-pad button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
 .ph-pad .ph-fn{font-size:calc(var(--ui-scale) * 18px)}
 .ph-done{max-width:34ch;text-align:center}
+
+/* ---------- live preview: the <video> itself is the preview when no per-frame JS is needed ---------- */
+.live-video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block;border-radius:var(--r);background:var(--ink);
+  box-shadow:var(--shadow-2),0 0 0 1px var(--line),0 0 0 6px rgb(255 255 255/.35);visibility:hidden;pointer-events:none}
+.live-video.as-preview{visibility:visible}
+#preview.canvas-off{visibility:hidden}
+/* the light ring around the preview lives on the frame, so a CSS filter on the <video> cannot tint it */
+.frame::before{content:"";position:absolute;inset:0;border-radius:var(--r);pointer-events:none;box-shadow:var(--shadow-2),0 0 0 1px var(--line),0 0 0 6px rgb(255 255 255/.35)}
+.live-video,#preview{box-shadow:none}
+
+/* ---------- privacy notice ---------- */
+.privacy-link{position:fixed;left:var(--s4);bottom:var(--s3);z-index:20;display:none;min-height:44px;padding:0 var(--s2);font-size:calc(var(--ui-scale) * 13px);
+  letter-spacing:.06em;text-transform:uppercase;color:var(--text-mut);background:none;border:0;text-decoration:underline;cursor:var(--cur-pointer,pointer)}
+body[data-state="live"] .privacy-link,body[data-state="result"] .privacy-link{display:inline-flex;align-items:center}
+.privacy-dialog{width:min(92vw,560px)}
+.privacy-dialog h2{margin:0 0 var(--s3);font-weight:300;font-size:calc(var(--ui-scale) * 26px)}
+.pv-body{display:flex;flex-direction:column;gap:var(--s3);max-height:68vh;overflow-y:auto;font-size:calc(var(--ui-scale) * 16px);line-height:1.5}
+.pv-body p{margin:0}
+
+.pv-body:focus-visible{outline:none}
+.live-glow{display:none;visibility:visible}
+.live-glow.on{display:block}

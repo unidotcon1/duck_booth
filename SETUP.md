@@ -25,7 +25,7 @@ Requires a free Cloudflare account with R2 enabled (R2 needs a payment method on
 ```bash
 npx wrangler login
 npx wrangler r2 bucket create photo-booth-photos
-npx wrangler r2 bucket lifecycle add photo-booth-photos expire-photos --prefix photos/ --expire-days 31
+npx wrangler r2 bucket lifecycle add photo-booth-photos expire-photos --prefix photos/ --expire-days 8
 npx wrangler secret put KIOSK_TOKEN       # paste a long random string
 npx wrangler deploy
 ```

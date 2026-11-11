@@ -196,6 +196,14 @@
             <span data-i18n="drawer.phoneCc">Default country code</span>
             <select id="ph-default-cc"></select>
           </label>
+          <label class="field set-item" data-kw="privacy notice data protection pdpa link 隐私 声明 个人资料 保护">
+            <span data-i18n="drawer.showPrivacy">Show privacy notice link</span>
+            <select id="show-privacy"><option value="on" data-i18n="drawer.on">On</option><option value="off" data-i18n="drawer.off">Off</option></select>
+          </label>
+          <label class="field set-item" data-kw="privacy contact organiser email phone delete request 隐私 联系 主办方 邮箱 电话 删除">
+            <span data-i18n="drawer.privacyContact">Privacy contact (shown in the notice)</span>
+            <input id="privacy-contact" type="text" maxlength="120" autocomplete="off" placeholder="booth@example.org" data-i18n-ph="drawer.privacyContactPh">
+          </label>
           <label class="field set-item" data-kw="printer printing 打印 打印机">
             <span data-i18n="drawer.showPrint">Show print button</span>
             <select id="show-print"><option value="on" data-i18n="drawer.on">On</option><option value="off" data-i18n="drawer.off">Off</option></select>
@@ -319,6 +327,21 @@
       </details>
     </div>
   </aside>
+
+  <button id="privacy-open" class="privacy-link link" type="button" data-i18n="privacy.link">Privacy</button>
+  <dialog id="privacy-dialog" class="privacy-dialog" aria-labelledby="pv-title">
+    <h2 id="pv-title" data-i18n="privacy.title">Privacy notice</h2>
+    <div class="pv-body">
+      <p data-i18n="privacy.p1" data-i18n-flow>This booth uses the camera to take your photo. Background removal, filters and stickers run on this computer — your picture is not sent to any AI service.</p>
+      <p id="pv-p2" data-i18n="privacy.p2" data-i18n-flow>Your finished photo is stored on this booth computer so you can download it with the QR code. It is deleted automatically after {days} days, and the organiser removes all photos after the event.</p>
+      <p data-i18n="privacy.p3" data-i18n-flow>Only people who have your photo's link (the QR code) can open it, so don't share it if you don't want others to see it. You can delete your photo yourself from the download page.</p>
+      <p data-i18n="privacy.p4" data-i18n-flow>If you use Send to phone, your number is only used to open a WhatsApp message with your link. It is not stored.</p>
+      <p data-i18n="privacy.p5" data-i18n-flow>Children under 13 should use the booth with a parent or guardian, who should agree to this notice.</p>
+      <p id="pv-contact" hidden data-i18n-flow></p>
+      <p id="pv-credit" class="note" data-i18n-flow></p>
+    </div>
+    <div class="dlg-actions"><button id="pv-close" class="primary" type="button" data-i18n="privacy.close">Close</button></div>
+  </dialog>
 
   <dialog id="phone-dialog" class="phone-dialog" aria-labelledby="ph-title">
     <form method="dialog" id="phone-form" novalidate>

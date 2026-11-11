@@ -9,7 +9,7 @@
 | 4 | CORS "policy" | Not needed — same-origin only. Cross-origin `Origin` rejected, no `Access-Control-*` headers ever emitted. |
 | 5 | **IDOR / enumeration** | Keys are `crypto.randomUUID()` (122 bits); IDs validated against a strict v4 regex before touching R2; bucket is never public. Caveat: link = capability, anyone with the QR can view. |
 | 6 | Stored XSS via SVG/HTML upload | Only JPEG/PNG accepted; served with `nosniff`, `CSP: default-src 'none'; sandbox`, `CORP: same-origin`. |
-| 7 | Photos live forever (privacy + cost) | `expiresAt` metadata enforced on read (30 d). **You must also add an R2 lifecycle rule** (below) for real deletion. |
+| 7 | Photos live forever (privacy + cost) | `expiresAt` metadata enforced on read (default 7 days), swept on upload. **You must also add an R2 lifecycle rule** (below) for real deletion. |
 | 8 | CSP / clickjacking | `_headers` ships a strict CSP (no inline JS/CSS), `frame-ancestors 'none'`, `Permissions-Policy`. No CDN dependency: QR lib is vendored. |
 | 9 | Landing page / QR link leaking via Referer | `Referrer-Policy: no-referrer`, `noindex`. |
 
@@ -28,7 +28,7 @@
 ```bash
 npm install
 npx wrangler r2 bucket create photo-booth-photos
-npx wrangler r2 bucket lifecycle add photo-booth-photos expire-photos --prefix photos/ --expire-days 31
+npx wrangler r2 bucket lifecycle add photo-booth-photos expire-photos --prefix photos/ --expire-days 8
 npx wrangler secret put KIOSK_TOKEN      # long random string
 npx wrangler deploy
 # open https://<worker>.workers.dev/#k=<KIOSK_TOKEN> once on the kiosk

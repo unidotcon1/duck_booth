@@ -14,6 +14,7 @@ const SECURITY_HEADERS = {
   "Referrer-Policy": "no-referrer",
   "X-Frame-Options": "DENY",
   "Cross-Origin-Resource-Policy": "same-origin",
+  "X-Robots-Tag": "noindex, nofollow, noarchive",
 };
 
 function json(body, status = 200, extra = {}) {
@@ -35,6 +36,7 @@ const publicBase = (env) => {
   const v = String(env.PUBLIC_BASE_URL || "").trim().replace(/\/+$/, "");
   return /^https?:\/\/[^\s/?#]+(\/[^\s?#]*)?$/i.test(v) ? v : "";
 };
+const ttlDays = (env) => Math.max(1, Math.min(365, Number(env.PHOTO_TTL_DAYS) || 7));
 const keyRequired = (env) => typeof env.KIOSK_TOKEN === "string" && env.KIOSK_TOKEN.length > 0;
 
 // Constant-time-ish compare via SHA-256 digests (no length leak).
@@ -70,7 +72,7 @@ async function readLimited(request, limit) {
   return out;
 }
 
-async function handleUpload(request, env) {
+async function handleUpload(request, env, ctx) {
   if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405, { Allow: "POST" });
 
   // CORS: same-origin only. Browsers send Origin on cross-origin POSTs; reject anything foreign.
@@ -110,15 +112,31 @@ async function handleUpload(request, env) {
   if (!type || type !== declaredType) return json({ error: "content_mismatch" }, 415);
 
   const id = crypto.randomUUID(); // CSPRNG, 122 bits => not enumerable
-  const ttlDays = Number(env.PHOTO_TTL_DAYS) || 30;
-  const expiresAt = Date.now() + ttlDays * 86400_000;
+  const expiresAt = Date.now() + ttlDays(env) * 86400_000;
   await env.PHOTOS.put(`photos/${id}`, bytes, {
     httpMetadata: { contentType: type, cacheControl: "private, max-age=3600" },
     customMetadata: { expiresAt: String(expiresAt) },
   });
 
+  ctx?.waitUntil?.(purgeExpired(env).catch((e) => console.error("purge failed", e?.message)));
   const base = new URL(request.url).origin;
   return json({ id, url: `${base}/p/${id}`, downloadUrl: `${base}/p/${id}?download`, expiresAt }, 201);
+}
+
+// Real deletion of expired photos. R2 lifecycle rules do not exist in local mode, so every upload (at most every 10 minutes)
+// sweeps expired photos. `scripts/delete-photos.mjs --expired` does the same on demand.
+let lastPurge = 0;
+async function purgeExpired(env) {
+  const now = Date.now();
+  if (now - lastPurge < 10 * 60_000) return;
+  lastPurge = now;
+  let cursor, deleted = 0;
+  do {
+    const page = await env.PHOTOS.list({ prefix: "photos/", limit: 200, cursor, include: ["customMetadata"] });
+    const dead = page.objects.filter((o) => { const e = Number(o.customMetadata?.expiresAt); return Number.isFinite(e) && e < now; }).map((o) => o.key);
+    if (dead.length) { await env.PHOTOS.delete(dead); deleted += dead.length; }
+    cursor = page.truncated ? page.cursor : undefined;
+  } while (cursor && deleted < 1000);
 }
 
 async function loadPhoto(env, id) {
@@ -135,15 +153,23 @@ const notFound = () => new Response("Not found", { status: 404, headers: { "Cach
 
 const LANDING_I18N = {
   en: { lang: "en", title: "Your photo", alt: "Your photo booth picture", btn: "Download photo",
-        note: (d) => `On iPhone: press and hold the photo, then “Add to Photos”. Link expires in ${d} days.` },
+        note: (d) => `On iPhone: press and hold the photo, then “Add to Photos”. This link is deleted automatically after ${d} days.`,
+        priv: "Privacy", privText: "Anyone with this link can see the photo. You can delete it now:", del: "Delete this photo",
+        gone: "Your photo has been deleted.", goneNote: "It can no longer be opened with this link." },
   zh: { lang: "zh-CN", title: "你的照片", alt: "你的照片", btn: "下载照片",
-        note: (d) => `iPhone：长按照片，选择“添加到照片”。链接将在 ${d} 天后失效。` },
+        note: (d) => `iPhone：长按照片，选择“添加到照片”。此链接将在 ${d} 天后自动删除。`,
+        priv: "隐私", privText: "任何拿到此链接的人都能看到这张照片。你可以现在删除它：", del: "删除这张照片",
+        gone: "你的照片已删除。", goneNote: "此链接已无法再打开照片。" },
+};
+
+const pickLang = (request) => {
+  const q = new URL(request.url).searchParams.get("lang");
+  const al = request.headers.get("Accept-Language") || "";
+  return LANDING_I18N[q === "zh" || q === "en" ? q : /^\s*zh/i.test(al) ? "zh" : "en"];
 };
 
 function landingPage(id, ttlDays, request) {
-  const q = new URL(request.url).searchParams.get("lang");
-  const al = request.headers.get("Accept-Language") || "";
-  const L = LANDING_I18N[q === "zh" || q === "en" ? q : /^\s*zh/i.test(al) ? "zh" : "en"];
+  const L = pickLang(request);
   const html = `<!doctype html><html lang="${L.lang}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
 <title>${L.title}</title>
@@ -155,22 +181,42 @@ main{width:100%;max-width:520px;text-align:center}
 img{width:100%;height:auto;border-radius:12px;display:block;box-shadow:0 8px 30px #0003}
 a.btn{display:inline-block;margin-top:16px;padding:14px 28px;border-radius:999px;background:var(--ac);color:#fff;text-decoration:none;font-weight:600}
 p{opacity:.7;font-size:14px}
+details{margin-top:18px;font-size:14px;opacity:.85}summary{cursor:pointer}
+button.del{margin-top:8px;padding:10px 20px;border-radius:999px;border:1px solid currentColor;background:none;color:inherit;font:inherit;cursor:pointer}
 </style></head><body><main>
 <img src="/p/${id}/raw" alt="${L.alt}">
 <a class="btn" href="/p/${id}?download" download>${L.btn}</a>
 <p>${L.note(ttlDays)}</p>
+<details><summary>${L.priv}</summary><p>${L.privText}</p>
+<form method="post" action="/p/${id}/delete"><button class="del" type="submit">${L.del}</button></form></details>
 </main></body></html>`;
   return new Response(html, {
     headers: {
       "Content-Type": "text/html; charset=utf-8",
       "Cache-Control": "no-store",
-      "Content-Security-Policy": "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+      "Content-Security-Policy": "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
       ...SECURITY_HEADERS,
     },
   });
 }
 
+async function handleDelete(request, env, url, id) {
+  if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405, { Allow: "POST" });
+  const origin = request.headers.get("Origin");
+  if (origin && origin !== url.origin) return json({ error: "forbidden_origin" }, 403);
+  if (!ID_RE.test(id)) return notFound();
+  await env.PHOTOS.delete(`photos/${id}`);   // idempotent; the unguessable id is the capability
+  const L = pickLang(request);
+  return new Response(`<!doctype html><html lang="${L.lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${L.gone}</title>
+<style>body{margin:0;min-height:100svh;display:grid;place-items:center;padding:16px;font:16px/1.4 system-ui,sans-serif;text-align:center;color-scheme:light dark}p{opacity:.7}</style></head>
+<body><main><h1>${L.gone}</h1><p>${L.goneNote}</p></main></body></html>`, {
+    headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'", ...SECURITY_HEADERS },
+  });
+}
+
 async function handleShare(request, env, url) {
+  const dm = url.pathname.match(/^\/p\/([^/]+)\/delete\/?$/);
+  if (dm) return handleDelete(request, env, url, dm[1]);
   if (request.method !== "GET" && request.method !== "HEAD") return json({ error: "method_not_allowed" }, 405, { Allow: "GET, HEAD" });
   const m = url.pathname.match(/^\/p\/([^/]+)(\/raw)?\/?$/);
   if (!m) return notFound();
@@ -181,7 +227,7 @@ async function handleShare(request, env, url) {
   const wantsDownload = url.searchParams.has("download");
   if (!raw && !wantsDownload) {
     obj.body?.cancel();
-    return landingPage(id, Number(env.PHOTO_TTL_DAYS) || 30, request);
+    return landingPage(id, ttlDays(env), request);
   }
   const type = obj.httpMetadata?.contentType === "image/png" ? "image/png" : "image/jpeg";
   const ext = type === "image/png" ? "png" : "jpg";
@@ -198,11 +244,11 @@ async function handleShare(request, env, url) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     try {
-      if (url.pathname === "/api/config") return json({ keyRequired: keyRequired(env), publicBaseUrl: publicBase(env) });
-      if (url.pathname === "/api/upload") return await handleUpload(request, env);
+      if (url.pathname === "/api/config") return json({ keyRequired: keyRequired(env), publicBaseUrl: publicBase(env), photoTtlDays: ttlDays(env) });
+      if (url.pathname === "/api/upload") return await handleUpload(request, env, ctx);
       if (url.pathname.startsWith("/p/")) return await handleShare(request, env, url);
       if (url.pathname.startsWith("/api/")) return json({ error: "not_found" }, 404);
       return env.ASSETS.fetch(request);

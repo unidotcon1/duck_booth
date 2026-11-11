@@ -2,3 +2,5 @@ node_modules/
 .dev.vars
 .wrangler/
 archive/
+photobooth-data/
+photos-export/
