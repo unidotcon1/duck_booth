@@ -58,6 +58,7 @@
   let state = "live"; // live | countdown | processing | review | result
   let stream = null;
   let video = null;
+  let glowVideo = null;   // second <video> used as the soft-glow layer of the Dream / Beauty filters (GPU, no JS per frame)
   let rafId = 0;
   let lastFrame = 0;
   let bgId = "raw";          // chosen per photo on the review screen (starts at Original)
@@ -434,7 +435,7 @@
     });
     updateNames();
   }
-  function selectFilter(id) { filterId = id; prefs.filter = id; savePrefs(); syncFilterGallery(); }
+  function selectFilter(id) { filterId = id; prefs.filter = id; savePrefs(); syncFilterGallery(); applyPreviewMode(); }
   // Static chip swatches: one sample picture per chip, drawn once (no camera, no timers).
   const sample = new Image(); let overrides = {};
   const overrideImgs = {};
@@ -544,6 +545,7 @@
   function stopStream() {
     cancelAnimationFrame(rafId); rafId = 0;
     if (stream) { stream.getTracks().forEach((tr) => tr.stop()); stream = null; }
+    if (glowVideo) { glowVideo.srcObject = null; glowVideo.remove(); glowVideo = null; }
     if (video) { video.srcObject = null; video.remove(); video = null; }
   }
 
@@ -584,17 +586,20 @@
       vt.addEventListener("unmute", relock);
 
       video = document.createElement("video");
-      video.className = "offscreen"; video.muted = true; video.playsInline = true; video.autoplay = true;
-      video.setAttribute("playsinline", ""); video.setAttribute("webkit-playsinline", "");
-      // Must stay in the DOM (iOS Safari pauses detached / display:none video).
-      Object.assign(video.style, { position: "fixed", width: "1px", height: "1px", opacity: "0", pointerEvents: "none", left: "0", top: "0" });
-      document.body.append(video);
+      video.className = "live-video"; video.muted = true; video.playsInline = true; video.autoplay = true;
+      video.setAttribute("playsinline", ""); video.setAttribute("webkit-playsinline", ""); video.setAttribute("aria-hidden", "true");
+      // Stays in the DOM (browsers pause detached / display:none video). Shown as the preview when no per-frame JS is needed.
+      el.preview.parentElement.insertBefore(video, el.preview);
+      glowVideo = document.createElement("video");
+      glowVideo.className = "live-video live-glow"; glowVideo.muted = true; glowVideo.playsInline = true; glowVideo.autoplay = true;
+      glowVideo.setAttribute("playsinline", ""); glowVideo.setAttribute("aria-hidden", "true");
+      glowVideo.srcObject = stream; video.after(glowVideo); glowVideo.play().catch(() => {});
       video.srcObject = stream;
       stream.getVideoTracks()[0].addEventListener("ended", () => showCamError("err.camLost"));
       await video.play();
       if (video.videoWidth && video.videoHeight) { prefs.ar = +(video.videoWidth / video.videoHeight).toFixed(4); savePrefs(); el.preview.parentElement.style.setProperty("--ar", String(prefs.ar)); }
       paintCamStatus();
-      loop();
+      syncPreviewSize(); applyPreviewMode();
       warmSegmenter();
     } catch (e) {
       const map = { NotAllowedError: "err.camDenied", NotFoundError: "err.camNotFound", NotReadableError: "err.camBusy" };
@@ -602,16 +607,42 @@
     }
   }
 
-  function loop(ts = 0) {
-    rafId = requestAnimationFrame(loop);
-    if (document.hidden || state === "result" || state === "review" || state === "processing" || !video) return;
-    if (ts - lastFrame < 33) return;   // ~30 fps cap
-    lastFrame = ts;
-    const vw = video.videoWidth, vh = video.videoHeight;
-    if (!vw || !vh) return;
-    const pw = Math.min(vw, 960), ph = Math.round(pw * vh / vw);
+  // PERFORMANCE: when the preview needs no per-pixel work (no green-screen keying, no two-pass glow filter) the browser
+  // draws the <video> itself and the filter + mirror run on the GPU as CSS, so JavaScript does nothing per frame.
+  // Only green screen and the two glow filters (Dream, Beauty) still use the canvas path, capped at ~24 fps.
+  function directPreview() { return el.method.value !== "green"; }   // only green-screen keying needs per-pixel JavaScript
+  function syncPreviewSize() {
+    if (!video || !video.videoWidth || !video.videoHeight) return;
+    const pw = Math.min(video.videoWidth, 960), ph = Math.round(pw * video.videoHeight / video.videoWidth);
     if (el.preview.width !== pw || el.preview.height !== ph) { el.preview.width = pw; el.preview.height = ph; el.preview.parentElement.style.setProperty("--ar", String(pw / ph)); }
-    renderFrame(pctx, pw, ph);
+  }
+  function applyPreviewMode() {
+    if (!video) return;
+    const direct = directPreview(), f = filterById(filterId);
+    video.classList.toggle("as-preview", direct);
+    el.preview.classList.toggle("canvas-off", direct);
+    const flip = direct && el.mirror.checked ? "scaleX(-1)" : "";
+    video.style.filter = direct && f.p ? cssOf(f.p) : "";
+    video.style.transform = flip;
+    if (glowVideo) {   // soft glow = a blurred, brightened copy on top, same maths as the canvas version
+      const on = direct && !!f.glow;
+      glowVideo.classList.toggle("on", on);
+      glowVideo.style.transform = flip;
+      glowVideo.style.opacity = on ? String(f.glow.alpha) : "0";
+      glowVideo.style.filter = on ? `blur(${Math.max(1, f.glow.blur * (el.preview.parentElement.clientWidth || 960)).toFixed(1)}px) brightness(${f.glow.bri})` : "";
+    }
+    if (direct) { cancelAnimationFrame(rafId); rafId = 0; } else if (!rafId) rafId = requestAnimationFrame(loop);
+  }
+  if (window.ResizeObserver) { let t = 0; new ResizeObserver(() => { clearTimeout(t); t = setTimeout(applyPreviewMode, 150); }).observe(el.preview.parentElement); }
+  function loop(ts = 0) {
+    rafId = 0;
+    if (!video || directPreview()) return;                // nothing to draw: the browser shows the video itself
+    rafId = requestAnimationFrame(loop);
+    if (document.hidden || state === "result" || state === "review" || state === "processing") return;
+    if (ts - lastFrame < 41) return;                      // ~24 fps cap
+    lastFrame = ts;
+    syncPreviewSize();
+    if (el.preview.width) renderFrame(pctx, el.preview.width, el.preview.height);
   }
 
   // ---------- capture ----------
@@ -639,8 +670,11 @@
     return c;
   }
 
+  let warmTimer = 0;
   function warmSegmenter() {
-    if (el.method.value === "auto" && window.Segmenter) window.Segmenter.load().catch(() => { /* surfaced when a cut-out is requested */ });
+    if (el.method.value !== "auto" || !window.Segmenter || window.Segmenter.status === "ready" || warmTimer) return;
+    const run = () => { warmTimer = 0; window.Segmenter.load().catch(() => { /* surfaced when a cut-out is requested */ }); };
+    warmTimer = setTimeout(() => ("requestIdleCallback" in window ? requestIdleCallback(run, { timeout: 4000 }) : run()), 1500);
   }
 
   // Aggregate cut-out status over all shots.
@@ -891,6 +925,7 @@
     bgId = saved && saved !== "raw" && [...el.rGallery.children].some((b) => b.dataset.id === saved) ? saved : "raw";
     syncGallery(); ensureFileBg(bgId).then(() => { if (state === "review" && hasCap) refreshReview(); });
     startCutouts();   // kick off in the background so it is usually ready by the time a background is picked
+    stopStream();   // PERFORMANCE + PRIVACY: release the camera (no decoding, camera light off) while the guest edits
     showScreen("review"); setState("review");
     layoutReview();
     if (ST) { ST.setEnabled(true); ST.load().catch(() => {}); }
@@ -903,6 +938,7 @@
     const c = el.rCanvas; c.width = c.height = 0;
     showScreen("live"); setState("live");
     el.shutter.disabled = !el.camErr.hidden;
+    startCamera(el.camera.value || null);   // camera was released on the review screen
     el.shutter.focus({ preventScroll: true });
   }
 
@@ -964,10 +1000,10 @@
 
   // ---------- upload ----------
   let keyRequired = true;   // server decides (GET /api/config); assume required if unknown
-  let serverQrBase = "";    // address phones can reach, provided by the start-tunnel script (GET /api/config)
+  let serverQrBase = "", photoTtlDays = 7;    // address phones can reach, provided by the start-tunnel script (GET /api/config)
   const configReady = fetch("/api/config", { cache: "no-store" })
     .then((r) => (r.ok ? r.json() : null))
-    .then((j) => { if (j && j.keyRequired === false) keyRequired = false; if (j && typeof j.publicBaseUrl === "string") serverQrBase = j.publicBaseUrl; })
+    .then((j) => { if (j && j.keyRequired === false) keyRequired = false; if (j && typeof j.publicBaseUrl === "string") serverQrBase = j.publicBaseUrl; if (j && Number(j.photoTtlDays) > 0) photoTtlDays = Number(j.photoTtlDays); })
     .catch(() => { /* keep required */ })
     .then(() => paintKeyStatus());
   function paintKeyStatus() {
@@ -1084,7 +1120,7 @@
     resetTotal = total; resetRemain = total; resetLast = Date.now(); paintReset(); el.resetNote.hidden = false;
     resetTimer = setInterval(() => {
       const now = Date.now(), dt = now - resetLast; resetLast = now;
-      if (uploading || state !== "result" || document.getElementById("phone-dialog")?.open) { if (document.getElementById("phone-dialog")?.open) resetRemain = resetTotal; return; }   // paused while uploading / entering a number
+      if (uploading || state !== "result" || anyDialogOpen()) { if (anyDialogOpen()) resetRemain = resetTotal; return; }   // paused while uploading / entering a number
       resetRemain -= dt; paintReset();
       if (resetRemain <= 0) { stopReset(); backToLive(); }
     }, 250);
@@ -1125,6 +1161,7 @@
     el.showSettings.value = prefs.showSettings === false ? "off" : "on"; applySettingsBtn();
     el.qrBase.value = prefs.qrBase || "";
     $("show-phone").value = prefs.phone === false ? "off" : "on";
+    $("show-privacy").value = prefs.privacy === false ? "off" : "on"; $("privacy-contact").value = prefs.privacyContact || "";
     el.shotsSel.value = String(shotsN()); el.layoutSel.value = prefs.layout === "grid" ? "grid" : "vertical"; syncStripOptions(); syncModeUI();
   }
   function applyScale(v) {
@@ -1163,12 +1200,13 @@
   const SLIDERS = [[el.strength, "key-strength-val", 50], [el.soft, "key-soft-val", 45], [el.despill, "key-despill-val", 80]];
   function paintSliders() { SLIDERS.forEach(([n, id]) => { $(id).textContent = n.value; }); }
   [el.mirror, el.frameOn, el.frameText, el.strength, el.soft, el.despill].forEach((n) => n.addEventListener("input", syncPrefs));
+  el.mirror.addEventListener("input", applyPreviewMode);
   SLIDERS.forEach(([n]) => n.addEventListener("input", paintSliders));
   el.keyReset.addEventListener("click", () => {
     SLIDERS.forEach(([n, , d]) => { n.value = String(d); });
     paintSliders(); syncPrefs();
   });
-  function syncMethod() { el.tuning.hidden = el.method.value !== "green"; }
+  function syncMethod() { el.tuning.hidden = el.method.value !== "green"; applyPreviewMode(); }
   el.method.addEventListener("change", () => { syncMethod(); syncPrefs(); warmSegmenter(); });
   el.mode.addEventListener("change", () => { el.mirror.checked = el.mode.value === "test"; syncPrefs(); startCamera(null); });
   el.camera.addEventListener("change", () => startCamera(el.camera.value));
@@ -1291,6 +1329,27 @@
   }
 
   // ---------- send the photo link to a phone (WhatsApp chat link; the number is never stored or sent to any server) ----------
+  const anyDialogOpen = () => !!document.querySelector("dialog[open]");
+  // ---------- privacy notice ----------
+  (function privacyNotice() {
+    const open = $("privacy-open"), dlg = $("privacy-dialog"), p2 = $("pv-p2"), contact = $("pv-contact"), credit = $("pv-credit");
+    const CREDIT = "unidotcon1";   // shown in the notice; change to your name
+    const show = $("show-privacy"), contactIn = $("privacy-contact");
+    const apply = () => { open.hidden = prefs.privacy === false; };
+    show.addEventListener("change", () => { prefs.privacy = show.value !== "off"; savePrefs(); apply(); });
+    contactIn.addEventListener("input", () => { prefs.privacyContact = contactIn.value.trim().slice(0, 120); savePrefs(); });
+    open.addEventListener("click", () => {
+      window.I18N.set(p2, "privacy.p2", { days: photoTtlDays });
+      const c = (prefs.privacyContact || "").trim();
+      if (c) { window.I18N.set(contact, "privacy.contact", { contact: c }); contact.hidden = false; } else contact.hidden = true;
+      window.I18N.set(credit, "privacy.credit", { credit: CREDIT });
+      resetRemain = resetTotal; dlg.showModal();
+    });
+    $("pv-close").addEventListener("click", () => dlg.close());
+    dlg.addEventListener("click", (e) => { if (e.target === dlg) dlg.close(); });   // click outside closes
+    apply();
+  })();
+
   function updatePhoneBtn() {
     const b = document.getElementById("send-phone");
     if (b) b.hidden = !(phoneLink && prefs.phone !== false && state === "result");
@@ -1375,7 +1434,7 @@
     const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(tag);
     if (e.key === "Escape" && drawerOpen) { e.preventDefault(); closeDrawer(); return; }
     if (e.key === "Escape" && state === "countdown") { e.preventDefault(); cancelCapture(); return; }   // stop the photo-taking phase
-    if (e.key === "Enter" && !typing && !drawerOpen && !el.tokenDialog.open && !document.getElementById("phone-dialog").open) {
+    if (e.key === "Enter" && !typing && !drawerOpen && !anyDialogOpen()) {
       if (state === "result" && tag !== "BUTTON") { e.preventDefault(); backToLive(); return; }          // Next guest
       if (state === "review" && (tag !== "BUTTON" || ae.getAttribute("role") === "radio")) { e.preventDefault(); confirmPhoto(); return; }
     }
@@ -1388,9 +1447,10 @@
 
   // busy cursor: processing, cutting out, uploading
   setInterval(() => {
+    if (document.hidden) return;
     const busy = state === "processing" || uploading || confirming || !el.cutProgress.hidden;
     if (document.body.classList.contains("busy") !== busy) document.body.classList.toggle("busy", busy);
-  }, 150);
+  }, 400);
 
   // ---------- 3-minute inactivity reset ----------
   let lastActivity = Date.now();
@@ -1400,7 +1460,7 @@
 
   function idleTick() {
     const idle = Date.now() - lastActivity;
-    const busy = state === "countdown" || state === "processing" || uploading || confirming || state === "result" || el.tokenDialog.open || drawerOpen;   // result screen has its own timer (or none)
+    const busy = state === "countdown" || state === "processing" || uploading || confirming || state === "result" || anyDialogOpen() || drawerOpen;   // result screen has its own timer (or none)
     if (busy) { lastActivity = Date.now(); }
     else if (idle >= IDLE_MS) { location.reload(); return; }
     else if (idle >= IDLE_MS - IDLE_WARN_MS) { el.idleWarn.hidden = false; el.idleSec.textContent = String(Math.ceil((IDLE_MS - idle) / 1000)); }

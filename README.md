@@ -137,6 +137,21 @@ Take a photo, then scan the QR code with a phone that is on **mobile data** (swi
 
 *For a permanent address that works even when your laptop is off, deploy to Cloudflare instead — see [SETUP.md](SETUP.md).*
 
+### Where your photos are stored (local use)
+When you run the booth on your own computer, **nothing is uploaded to the internet**. Each finished photo is saved here:
+
+> **`photobooth-data/`** — a folder inside the project folder (for example `C:\Users\you\Desktop\duck_booth\photobooth-data`)
+
+- The pictures are inside `photobooth-data/v3/r2/photo-booth-photos/blobs/` with long computer-style names, so you can't open them directly.
+- **To get normal picture files** run `npm run export-photos`. They are copied to **`photos-export/<date>/photo-<time>-<id>.jpg`**, ready to open, print or back up.
+- **To delete:** `npm run delete-photos -- --expired` (only photos past their time limit) or `npm run delete-photos -- --all --yes` (everything — export first!).
+- Photos are removed automatically after **7 days** (change `PHOTO_TTL_DAYS` in `wrangler.jsonc`).
+- Both folders are excluded from Git, so they are never uploaded to GitHub. Back them up yourself if you want to keep them, and delete them after your event.
+- Stickers you add in the app and your settings live in the browser's own storage on that computer, not in these folders.
+- A guest's phone saves its own copy when they download. The booth never keeps phone numbers.
+
+More detail, plus a privacy checklist for events: [PRIVACY.md](PRIVACY.md).
+
 ### Send to phone (WhatsApp)
 On the result screen, **Send to phone** opens a number pad. The guest types their mobile number (default country code **SG +65**; change it in settings, or type the full number starting with `+`), then taps **Open WhatsApp**.
 
@@ -145,6 +160,11 @@ On the result screen, **Send to phone** opens a number pad. The guest types thei
 - **Privacy:** the number is used only to build the WhatsApp link in the browser. It is not sent to the booth's server, not saved, and is cleared as soon as the dialog closes (the confirmation shows only the last 4 digits).
 - Turn it off in **settings → General → Show send-to-phone button**.
 - *Automatic SMS* would need a paid SMS service and a deployed server; it is not included.
+
+### Privacy, safety and performance
+- **Privacy notice for guests:** the **Privacy** link (bottom-left) shows an English / 中文 notice. Put your contact in **settings → General → Privacy contact**. Guests can delete their own photo from the download page. See [PRIVACY.md](PRIVACY.md).
+- **Safety measures** (upload key, rate limit, strict content policy, expiry, nothing sent to third parties): [SECURITY.md](SECURITY.md).
+- **Light on your computer:** the live camera view is drawn by the browser's graphics hardware instead of JavaScript, and the camera is switched off while guests edit. In our tests the live screen's main-thread load dropped from about **21% to 0.1%** of one core (measured with a test camera in headless Chrome, so real numbers differ). Only **green-screen mode** still needs per-pixel work (about 21% in the same test); everything else, including every filter, is handled by the graphics hardware.
 
 ---
 
@@ -180,5 +200,14 @@ Operators can also open settings by holding the invisible top-right corner for 1
 | Changed a file in `public/backgrounds` or `public/stickers` but nothing happened | Stop and restart the booth (close the black window and start again), then refresh the page. |
 
 ---
+
+## License and credit
+
+Copyright (c) 2026 **unidotcon1**. Released under the **[MIT License](LICENSE)**: anyone may use, copy, change and share this
+code, including for their own events, **as long as they keep the copyright notice and the licence text** (that is the credit).
+A friendly credit such as *"Photo Booth by unidotcon1 — https://github.com/unidotcon1/duck_booth"* is appreciated.
+
+- Open-source parts and AI models used (all permissive licences): [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) and the [`licenses/`](licenses) folder.
+- **The church logo, stickers, cursors and background pictures are *not* covered by the MIT licence** — see the table in THIRD-PARTY-NOTICES.md and make sure you may use them.
 
 *Cut-outs run in the browser using open-source models (MODNet, MediaPipe); photos never leave your computer unless you deploy it online.*

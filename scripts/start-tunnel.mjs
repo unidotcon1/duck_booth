@@ -63,7 +63,7 @@ setTimeout(() => { if (!booted) { console.error("[tunnel] no tunnel address afte
 // --- 2. booth ---
 function startBooth(publicUrl) {
   log("tunnel address:", publicUrl);
-  const args = ["wrangler", "dev", "--ip", "0.0.0.0", "--port", String(PORT), "--var", `PUBLIC_BASE_URL:${publicUrl}`];
+  const args = ["wrangler", "dev", "--ip", "0.0.0.0", "--port", String(PORT), "--persist-to", "photobooth-data", "--var", `PUBLIC_BASE_URL:${publicUrl}`];
   if (generated) args.push("--var", `KIOSK_TOKEN:${token}`);
   const booth = spawn(win ? "npx.cmd" : "npx", args, { cwd: root, shell: win, stdio: "inherit", env: { ...process.env, WRANGLER_SEND_METRICS: "false" } });
   children.push(booth);
