@@ -9,7 +9,7 @@
   const CAPTURE_MAX_W = 1920;       // full-res capture cap
   const REVIEW_MAX_W = 1280;        // review canvas backing size
   const MAX_UPLOAD = 5 * 1024 * 1024;
-  const COUNTDOWN_SEC = 3;
+  const timerSec = () => { const v = Number(prefs.timer); return v === 0 || v === 5 ? v : 3; };   // countdown: none / 3 s (default) / 5 s
   const UPLOAD_TRIES = 3;
   const QR_WAIT_MS = 3 * 60 * 1000, FAIL_RESET_MS = 30 * 1000;
   const TOKEN_KEY = "photobooth.kioskToken";
@@ -861,9 +861,12 @@
   const shotsN = () => [3, 4, 6].includes(+prefs.shots) ? +prefs.shots : 4;
 
   let capToken = 0;   // bumped to abort an in-flight capture (Esc / Cancel)
+  let shutterWaiter = null;   // set while a photo strip with no timer waits for the guest to press Take a picture
+  const waitForShutter = () => new Promise((res) => { shutterWaiter = res; });
   function cancelCapture() {
-    if (state !== "countdown") return;
+    if (state !== "countdown" && state !== "waiting") return;
     capToken++;
+    if (shutterWaiter) { const r = shutterWaiter; shutterWaiter = null; r(); }
     freeCapture();
     el.countdown.hidden = true; el.flash.hidden = true; el.shotInd.hidden = true; el.capBar.hidden = true;
     el.cdNum.textContent = ""; el.cdNum.classList.remove("tick"); clearI(el.cdSub);
@@ -873,26 +876,36 @@
   el.capCancel.addEventListener("click", cancelCapture);
 
   async function takePicture() {
+    if (state === "waiting" && shutterWaiter) { const r = shutterWaiter; shutterWaiter = null; r(); return; }   // next photo of a no-timer strip
     if (state !== "live" || !video || !video.videoWidth) return;
-    const n = curMode() === "strip" ? shotsN() : 1;
+    const n = curMode() === "strip" ? shotsN() : 1, secs = timerSec();
     const tok = ++capToken, dead = () => tok !== capToken;
     freeCapture(); photoFilter = filterId;
+    if (n > 1) makeShotSlots(n);
     setState("countdown"); el.shutter.disabled = true; el.capBar.hidden = false;
     for (let i = 0; i < n; i++) {
       if (!video) break;
       if (n > 1) { setI(el.shotInd, "shot.of", { i: i + 1, n }); el.shotInd.hidden = false; }
-      for (let c = i === 0 ? COUNTDOWN_SEC : 2; c > 0; c--) {   // later shots use a shorter 2-1 countdown
-        el.countdown.hidden = false;
-        el.cdNum.textContent = String(c); setI(el.cdSub, `cd.${c}`);
-        el.cdNum.classList.remove("tick"); void el.cdNum.offsetWidth; el.cdNum.classList.add("tick");   // retrigger pop
-        await sleep(1000);
+      if (secs > 0) {
+        for (let c = secs; c > 0; c--) {   // every photo gets the full countdown (3 or 5 seconds)
+          el.countdown.hidden = false;
+          el.cdNum.textContent = String(c); setI(el.cdSub, `cd.${Math.min(c, 3)}`);
+          el.cdNum.classList.remove("tick"); void el.cdNum.offsetWidth; el.cdNum.classList.add("tick");   // retrigger pop
+          await sleep(1000);
+          if (dead()) return;
+        }
+      } else if (i > 0) {   // no timer + strip: the guest presses Take a picture for every photo (the first press started the strip)
+        el.cdNum.textContent = ""; el.countdown.hidden = false; setI(el.cdSub, "cd.press");
+        setState("waiting"); el.shutter.disabled = false; el.shutter.focus({ preventScroll: true });
+        await waitForShutter();
         if (dead()) return;
+        setState("countdown"); el.shutter.disabled = true; clearI(el.cdSub); el.countdown.hidden = true;
       }
       el.flash.hidden = false; setTimeout(() => { el.flash.hidden = true; }, 400);
       const c = video ? grabFrame(n > 1 ? STRIP_FRAME_MAX_W : CAPTURE_MAX_W) : null;
       if (!c) break;
       shots.push({ raw: c, cut: null, status: "idle" });
-      if (n > 1) addShotThumb(c);
+      if (n > 1) addShotThumb(c, i);
       if (i < n - 1) { el.cdNum.textContent = ""; clearI(el.cdSub); await sleep(500); if (dead()) return; }
     }
     if (dead()) return;
@@ -910,11 +923,17 @@
     showReview();
   }
 
-  function addShotThumb(src) {
+  // Photo-strip progress: one numbered slot per photo; each slot fills with a thumbnail once that photo is taken.
+  function makeShotSlots(n) {
+    el.shotThumbs.textContent = "";
+    for (let k = 1; k <= n; k++) { const d = document.createElement("div"); d.className = "shot-slot"; d.innerHTML = `<b aria-hidden="true">${k}</b>`; el.shotThumbs.append(d); }
+    el.shotThumbs.hidden = false;
+  }
+  function addShotThumb(src, idx) {
+    const slot = el.shotThumbs.children[idx]; if (!slot) return;
     const th = Math.round(96 * src.height / src.width), c = document.createElement("canvas"); c.width = 96; c.height = th;
-    c.style.aspectRatio = `${src.width} / ${src.height}`;
     c.getContext("2d").drawImage(src, 0, 0, 96, th);
-    el.shotThumbs.hidden = false; el.shotThumbs.append(c);
+    slot.append(c); slot.classList.add("filled");
   }
 
   function showReview() {
@@ -1157,6 +1176,7 @@
     paintSliders();
     el.qrWaitSel.value = qrWait; applyScale(prefs.scale);
     el.boothMode.value = ["single", "strip"].includes(prefs.booth) ? prefs.booth : "guests";
+    $("timer-len").value = String(timerSec());
     el.framing.value = framingMode();
     if (prefs.ar) el.preview.parentElement.style.setProperty("--ar", String(prefs.ar));
     el.showPrint.value = prefs.print === false ? "off" : "on"; el.printBtn.hidden = prefs.print === false;
@@ -1196,6 +1216,7 @@
   el.showPrint.addEventListener("change", () => { prefs.print = el.showPrint.value !== "off"; el.printBtn.hidden = !prefs.print; savePrefs(); });
   el.printBtn.addEventListener("click", () => { resetRemain = resetTotal; window.print(); });
   el.framing.addEventListener("change", () => { prefs.framing = el.framing.value; savePrefs(); startCamera(el.camera.value || null); });
+  $("timer-len").addEventListener("change", () => { prefs.timer = Number($("timer-len").value); savePrefs(); });
   el.boothMode.addEventListener("change", () => { prefs.booth = el.boothMode.value; savePrefs(); syncModeUI(); });
   el.shotsSel.addEventListener("change", () => { prefs.shots = +el.shotsSel.value; syncStripOptions(); savePrefs(); });
   el.layoutSel.addEventListener("change", () => { prefs.layout = el.layoutSel.value; savePrefs(); });
@@ -1447,12 +1468,12 @@
     const ae = document.activeElement, tag = ae?.tagName || "";
     const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(tag);
     if (e.key === "Escape" && drawerOpen) { e.preventDefault(); closeDrawer(); return; }
-    if (e.key === "Escape" && state === "countdown") { e.preventDefault(); cancelCapture(); return; }   // stop the photo-taking phase
+    if (e.key === "Escape" && (state === "countdown" || state === "waiting")) { e.preventDefault(); cancelCapture(); return; }   // stop the photo-taking phase
     if (e.key === "Enter" && !typing && !drawerOpen && !anyDialogOpen()) {
       if (state === "result" && tag !== "BUTTON") { e.preventDefault(); backToLive(); return; }          // Next guest
       if (state === "review" && (tag !== "BUTTON" || ae.getAttribute("role") === "radio")) { e.preventDefault(); confirmPhoto(); return; }
     }
-    if (e.code === "Space" && state === "live" && !drawerOpen && !typing && tag !== "BUTTON") {
+    if (e.code === "Space" && (state === "live" || state === "waiting") && !drawerOpen && !typing && tag !== "BUTTON") {
       e.preventDefault(); takePicture();   // also works with wireless clickers
       return;
     }
@@ -1474,7 +1495,7 @@
 
   function idleTick() {
     const idle = Date.now() - lastActivity;
-    const busy = state === "countdown" || state === "processing" || uploading || confirming || state === "result" || anyDialogOpen() || drawerOpen;   // result screen has its own timer (or none)
+    const busy = state === "countdown" || state === "waiting" || state === "processing" || uploading || confirming || state === "result" || anyDialogOpen() || drawerOpen;   // result screen has its own timer (or none)
     if (busy) { lastActivity = Date.now(); }
     else if (idle >= IDLE_MS) { location.reload(); return; }
     else if (idle >= IDLE_MS - IDLE_WARN_MS) { el.idleWarn.hidden = false; el.idleSec.textContent = String(Math.ceil((IDLE_MS - idle) / 1000)); }

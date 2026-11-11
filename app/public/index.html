@@ -16,10 +16,7 @@
       <div class="frame">
         <canvas id="preview" data-i18n-aria="aria.preview" aria-label="Live camera preview"></canvas>
 
-        <div class="brand">
-          <img class="logo" src="/logo-crest.png" width="99" height="94" alt="Providence Presbyterian Church">
-          <h1 class="sr-only" data-i18n="brand">Photo Booth</h1>
-        </div>
+        <h1 class="sr-only" data-i18n="brand">Photo Booth</h1>
 
         <div id="mode-toggle" class="mode-toggle" role="group" data-i18n-aria="mode.aria" aria-label="Photo mode">
           <button type="button" data-mode="single" aria-pressed="true" data-i18n="mode.single">Single</button>
@@ -235,6 +232,15 @@
               <option value="single" data-i18n="drawer.bmSingle">Single only</option>
               <option value="strip" data-i18n="drawer.bmStrip">Photo Strip only</option>
             </select>
+          </label>
+          <label class="field set-item" data-kw="timer countdown delay seconds none manual press 倒计时 计时 秒 手动 延时">
+            <span data-i18n="drawer.timer">Countdown timer</span>
+            <select id="timer-len">
+              <option value="0" data-i18n="drawer.timerNone">None</option>
+              <option value="3" data-i18n="drawer.timer3">3 seconds</option>
+              <option value="5" data-i18n="drawer.timer5">5 seconds</option>
+            </select>
+            <small class="note" data-i18n="drawer.timerNote">With no timer a single photo is taken the moment Take a picture is pressed, and a photo strip waits for a press before every photo.</small>
           </label>
           <label class="field set-item" data-kw="number of photos shots count 3 4 6 张数 拍几张">
             <span data-i18n="drawer.shots">Shots per strip</span>

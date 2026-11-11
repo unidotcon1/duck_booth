@@ -84,7 +84,7 @@ Your picture is shown as it is (no filter is applied on top).
 
 | Where it shows | File to replace | Notes |
 |---|---|---|
-| Camera screen (small badge) | `app/public/logo-crest.png` | The symbol only, transparent PNG, about 100 × 100 px or larger |
+| Photo-strip footer (small mark under the photos) | `app/public/logo-crest.png` | The symbol only, transparent PNG, about 100 × 100 px or larger. (The camera screen no longer shows a logo.) |
 | Result screen (big plate above the slot) | `app/public/logo.png` | Symbol + name, transparent PNG, about **1000 px wide** or more for a sharp print |
 
 Keep the same file names. Higher-resolution files look sharper.
