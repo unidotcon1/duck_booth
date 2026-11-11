@@ -6,6 +6,19 @@ Works on a laptop with a webcam (tested design: Windows laptop, Chrome). No acco
 
 ---
 
+## What is where
+
+```
+start-tunnel.bat      ← double-click this to run the booth (the only file in the main folder)
+app/                  the booth itself
+  public/             the web page, AI models, stickers, backgrounds, filters, logo, cursors
+  src/                the small server (Cloudflare Worker)
+  scripts/            helper programs (export / delete photos, tunnel starter…)
+  launchers/          Mac/Linux starters and a "start without tunnel" starter
+  package.json, wrangler.jsonc   settings (photo expiry time is in wrangler.jsonc)
+docs/                 these guides: README, customize, deploy, privacy, security, licences
+```
+
 ## Before you start (once)
 
 1. **Install Node.js** (the free "LTS" version): <https://nodejs.org> — click through the installer with the default options.
@@ -22,8 +35,8 @@ Works on a laptop with a webcam (tested design: Windows laptop, Chrome). No acco
    > Once the work is merged into `main`, use `…/archive/refs/heads/main.zip` instead.
 2. **Right-click the ZIP → Extract All** (Windows) or double-click it (Mac). Put the folder somewhere easy, like your Desktop. Don't run it from inside the ZIP.
 3. Open the folder and start it:
-   - **Windows:** double-click **`start.bat`**.
-   - **Mac / Linux:** open Terminal in the folder and run `bash start.sh`.
+   - **Windows:** double-click **`start-tunnel.bat`** (it is the only file in the main folder). If the free tunnel program is not installed it offers to start the booth without it.
+   - **Mac / Linux:** open Terminal in the folder and run `bash app/launchers/start-local.sh`.
 4. The first run installs everything (about a minute) and then your browser opens **<http://localhost:8787>**.
    If it doesn't open by itself, type that address into Chrome.
 5. Click **Allow** when the browser asks to use the camera.
@@ -37,14 +50,14 @@ Needs [Git](https://git-scm.com/downloads) too.
 
 ```bash
 git clone https://github.com/unidotcon1/duck_booth.git
-cd duck_booth
+cd duck_booth/app
 git checkout claude/vibrant-archimedes-gjxulv
 npm install
 npm start
 ```
 
 Then open **<http://localhost:8787>** in Chrome and allow the camera.
-Next time you only need `cd duck_booth` and `npm start`. To update later: `git pull`.
+Next time you only need `cd duck_booth/app` and `npm start`. To update later: `git pull`.
 
 ---
 
@@ -77,7 +90,7 @@ The steps above only work when the phone and the laptop share the same Wi-Fi. If
 
 #### Easiest: one click
 1. Install the tunnel program once (Step 1 below).
-2. Double-click **`start-tunnel.bat`** (Mac/Linux: `bash start-tunnel.sh`, or `npm run tunnel`).
+2. Double-click **`start-tunnel.bat`** (Mac/Linux: `bash app/launchers/start-tunnel.sh`, or `npm run tunnel` inside the `app` folder).
 
 That one script starts the tunnel, starts the booth with the new public address already filled into the QR codes, switches the upload password on for you (a random one for each run, or the one in your `.dev.vars` file), and opens the booth in your browser. Keep its window open; press `Ctrl+C` to stop. You can skip steps 2–4 below — they describe doing the same thing by hand.
 
@@ -96,7 +109,7 @@ That one script starts the tunnel, starts the booth with the new public address 
 - Check it worked: `cloudflared --version` prints a version number.
 
 **Step 2 — Turn on the upload password (once)**
-1. In the project folder, create a text file named exactly **`.dev.vars`** containing one line, with your own long password (letters and numbers, no spaces):
+1. In the **`app`** folder, create a text file named exactly **`.dev.vars`** containing one line, with your own long password (letters and numbers, no spaces):
    ```
    KIOSK_TOKEN=pick-a-long-random-password-here
    ```
@@ -107,7 +120,7 @@ That one script starts the tunnel, starts the booth with the new public address 
    After that the booth never asks again on this computer. Guests' phones never need it.
 
 **Step 3 — Start the tunnel (every time)**
-1. Start the booth as usual (`start.bat` / `npm start`) and wait until it is running.
+1. Start the booth as usual (`start-tunnel.bat`, or `npm start` inside the `app` folder) and wait until it is running.
 2. Open a **second** Command Prompt / Terminal window and run:
    ```bash
    cloudflared tunnel --url http://localhost:8787
@@ -135,22 +148,22 @@ Take a photo, then scan the QR code with a phone that is on **mobile data** (swi
 | Booth shows "Upload key required" | Open `http://localhost:8787/#k=your-password` once (step 2.3). |
 | The warning under the QR code is still there | The *QR link address* is empty or still `localhost`. Re-do step 4. |
 
-*For a permanent address that works even when your laptop is off, deploy to Cloudflare instead — see [SETUP.md](SETUP.md).*
+*For a permanent address that works even when your laptop is off, deploy to Cloudflare instead — see [the deployment guide](guides/deploy-and-advanced.md).*
 
 ### Where your photos are stored (local use)
 When you run the booth on your own computer, **nothing is uploaded to the internet**. Each finished photo is saved here:
 
-> **`photobooth-data/`** — a folder inside the project folder (for example `C:\Users\you\Desktop\duck_booth\photobooth-data`)
+> **`app/photobooth-data/`** — a folder inside the `app` folder (for example `C:\Users\you\Desktop\duck_booth\app\photobooth-data`)
 
-- The pictures are inside `photobooth-data/v3/r2/photo-booth-photos/blobs/` with long computer-style names, so you can't open them directly.
-- **To get normal picture files** run `npm run export-photos`. They are copied to **`photos-export/<date>/photo-<time>-<id>.jpg`**, ready to open, print or back up.
+- The pictures are inside `app/photobooth-data/v3/r2/photo-booth-photos/blobs/` with long computer-style names, so you can't open them directly.
+- **To get normal picture files** open Command Prompt in the `app` folder and run `npm run export-photos`. They are copied to **`app/photos-export/<date>/photo-<time>-<id>.jpg`**, ready to open, print or back up.
 - **To delete:** `npm run delete-photos -- --expired` (only photos past their time limit) or `npm run delete-photos -- --all --yes` (everything — export first!).
-- Photos are removed automatically after **7 days** (change `PHOTO_TTL_DAYS` in `wrangler.jsonc`).
+- Photos are removed automatically after **7 days** (change `PHOTO_TTL_DAYS` in `app/wrangler.jsonc`).
 - Both folders are excluded from Git, so they are never uploaded to GitHub. Back them up yourself if you want to keep them, and delete them after your event.
 - Stickers you add in the app and your settings live in the browser's own storage on that computer, not in these folders.
 - A guest's phone saves its own copy when they download. The booth never keeps phone numbers.
 
-More detail, plus a privacy checklist for events: [PRIVACY.md](PRIVACY.md).
+More detail, plus a privacy checklist for events: [the privacy guide](legal/privacy.md).
 
 ### Send to phone (WhatsApp)
 On the result screen, **Send to phone** opens a number pad. The guest types their mobile number (default country code **SG +65**; change it in settings, or type the full number starting with `+`), then taps **Open WhatsApp**.
@@ -162,8 +175,8 @@ On the result screen, **Send to phone** opens a number pad. The guest types thei
 - *Automatic SMS* would need a paid SMS service and a deployed server; it is not included.
 
 ### Privacy, safety and performance
-- **Privacy notice for guests:** the **Privacy** link (bottom-left) shows an English / 中文 notice. Put your contact in **settings → General → Privacy contact**. Guests can delete their own photo from the download page. See [PRIVACY.md](PRIVACY.md).
-- **Safety measures** (upload key, rate limit, strict content policy, expiry, nothing sent to third parties): [SECURITY.md](SECURITY.md).
+- **Privacy notice for guests:** the **Privacy** link (bottom-left) shows an English / 中文 notice. Put your contact in **settings → General → Privacy contact**. Guests can delete their own photo from the download page. See [PRIVACY.md](legal/privacy.md).
+- **Safety measures** (upload key, rate limit, strict content policy, expiry, nothing sent to third parties): [the security notes](legal/security.md).
 - **Light on your computer:** the live camera view is drawn by the browser's graphics hardware instead of JavaScript, and the camera is switched off while guests edit. In our tests the live screen's main-thread load dropped from about **21% to 0.1%** of one core (measured with a test camera in headless Chrome, so real numbers differ). Only **green-screen mode** still needs per-pixel work (about 21% in the same test); everything else, including every filter, is handled by the graphics hardware.
 
 ---
@@ -172,9 +185,9 @@ On the result screen, **Send to phone** opens a number pad. The guest types thei
 
 Everything for adding or removing **backgrounds, stickers, filter pictures, the logo and the event name** is in one easy guide:
 
-### 👉 [GUIDE-CUSTOMIZE.md](GUIDE-CUSTOMIZE.md)
+### 👉 [Customize guide](guides/customize.md)
 
-More advanced options (putting it online with Cloudflare, security key for uploads, the settings reference) are in [SETUP.md](SETUP.md).
+More advanced options (putting it online with Cloudflare, security key for uploads, the settings reference) are in the [deployment & advanced guide](guides/deploy-and-advanced.md).
 
 ---
 
@@ -191,23 +204,23 @@ Operators can also open settings by holding the invisible top-right corner for 1
 
 | Problem | Fix |
 |---|---|
-| `start.bat` says Node.js is not installed | Install the LTS version from <https://nodejs.org>, then double-click `start.bat` again. |
+| `start-tunnel.bat` says Node.js is not installed | Install the LTS version from <https://nodejs.org>, then double-click `start-tunnel.bat` again. |
 | The camera stays black / "permission denied" | Click the camera icon in Chrome's address bar → Allow. Close other apps using the camera (Zoom, Teams). On Windows: Settings → Privacy → Camera → allow desktop apps. |
 | Picture zooms or follows you | Turn off **Automatic framing** in Windows (Settings → Bluetooth & devices → Cameras → your camera). |
 | "Port 8787 is already in use" | Close the other black window that's still running the booth, then start again. |
 | First photo is slow to cut out | The first cut-out loads ~36 MB of AI files; later ones are fast. |
 | QR code "refused to connect" on the phone | Same Wi-Fi: see *Phones can't scan localhost* above. Different Wi-Fi or mobile data: see *free quick tunnel* above. |
-| Changed a file in `public/backgrounds` or `public/stickers` but nothing happened | Stop and restart the booth (close the black window and start again), then refresh the page. |
+| Changed a file in `app/public/backgrounds` or `app/public/stickers` but nothing happened | Stop and restart the booth (close the black window and start again), then refresh the page. |
 
 ---
 
 ## License and credit
 
-Copyright (c) 2026 **unidotcon1**. Released under the **[MIT License](LICENSE)**: anyone may use, copy, change and share this
+Copyright (c) 2026 **unidotcon1**. Released under the **[MIT License](legal/LICENSE)**: anyone may use, copy, change and share this
 code, including for their own events, **as long as they keep the copyright notice and the licence text** (that is the credit).
 A friendly credit such as *"Photo Booth by unidotcon1 — https://github.com/unidotcon1/duck_booth"* is appreciated.
 
-- Open-source parts and AI models used (all permissive licences): [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) and the [`licenses/`](licenses) folder.
-- **The church logo, stickers, cursors and background pictures are *not* covered by the MIT licence** — see the table in THIRD-PARTY-NOTICES.md and make sure you may use them.
+- Open-source parts and AI models used (all permissive licences): [the third-party notices](legal/third-party-notices.md) and the [`legal/licenses/`](legal/licenses) folder.
+- **The church logo, stickers, cursors and background pictures are *not* covered by the MIT licence** — see the table in the third-party notices and make sure you may use them.
 
 *Cut-outs run in the browser using open-source models (MODNet, MediaPipe); photos never leave your computer unless you deploy it online.*

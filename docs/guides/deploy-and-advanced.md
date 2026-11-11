@@ -1,4 +1,6 @@
-# photo booth — how to run and view it
+# Photo Booth — running it, deploying it, advanced settings
+
+> **Run every command in this guide inside the `app` folder** (`cd duck_booth/app`). The easy way to start the booth is `start-tunnel.bat` in the main folder (see the [README](../README.md)).
 
 ## A. On your laptop (fastest, no Cloudflare account needed)
 Requirements: Node 18+ and a webcam. The browser allows the camera on `http://localhost` (no HTTPS needed).
@@ -6,14 +8,15 @@ Requirements: Node 18+ and a webcam. The browser allows the camera on `http://lo
 ```bash
 git clone https://github.com/unidotcon1/duck_booth.git
 cd duck_booth
-git checkout claude/vibrant-archimedes-gjxulv
+git checkout claude/vibrant-archimedes-gjxulv   # (or stay on main once it is merged)
+cd app
 npm install
 # optional: echo 'KIOSK_TOKEN=dev' > .dev.vars   # only if you want to test with the upload key ON
 npx wrangler dev                          # starts on http://localhost:8787
 ```
 
 Open **http://localhost:8787** in Chrome. (If you turned the key ON, open `http://localhost:8787/#k=dev` instead; the `#k=dev` part stores the key once, then disappears from the URL.)
-Allow the camera when asked. Uploaded photos go to a *local simulated* R2 bucket (in `.wrangler/`), so the QR link only works on your own machine/network.
+Allow the camera when asked. Uploaded photos go to a *local simulated* R2 bucket (in `app/photobooth-data/` when started with `npm start`), so the QR link only works on your own machine/network.
 
 - Operator settings: add `?admin=1` to the URL for a gear button, or press **Shift+S**.
 - Take a photo: click the button or press **Space**.
@@ -49,11 +52,11 @@ The app asks the server (`GET /api/config`) whether a key is required, so no cha
 **Warning:** with the key OFF on a public deployment, anyone who knows the URL can upload to your R2 bucket (the 5 MB cap, file-type checks and per-IP rate limit still apply). Prefer ON for real events, or put the site behind Cloudflare Access.
 
 ## E. Background removal (no green screen needed)
-After a photo is taken, the review screen lets guests pick a new background. The person is cut out **in the browser** with the MODNet matting model (Apache-2.0, run through onnxruntime-web) plus edge refinement; if the model file is missing it falls back to MediaPipe. Everything is self-hosted in `public/vendor/` — nothing is sent to a third party. The first photo downloads about 36 MB of model files (browser-cached afterwards), and the app starts loading them as soon as the camera starts. A real green screen is still supported: operator drawer → *Cut-out method* → *Green screen*.
-To re-download the model files: `bash scripts/fetch-model.sh`.
+After a photo is taken, the review screen lets guests pick a new background. The person is cut out **in the browser** with the MODNet matting model (Apache-2.0, run through onnxruntime-web) plus edge refinement; if the model file is missing it falls back to MediaPipe. Everything is self-hosted in `app/public/vendor/` — nothing is sent to a third party. The first photo downloads about 36 MB of model files (browser-cached afterwards), and the app starts loading them as soon as the camera starts. A real green screen is still supported: operator drawer → *Cut-out method* → *Green screen*.
+To re-download the model files: `bash app/scripts/fetch-model.sh`.
 
 ## F. Your own background images
-Drop `.jpg/.png/.webp` files in `public/backgrounds/` (see the README.txt there). They show up as choices on the review screen. Names, Chinese names and hiding the built-in gradients are set with `names.json` / `config.json` in that folder.
+Drop `.jpg/.png/.webp` files in `app/public/backgrounds/` (see the README.txt there). They show up as choices on the review screen. Names, Chinese names and hiding the built-in gradients are set with `names.json` / `config.json` in that folder.
 
 ## G. Operator settings (drawer: `?admin=1` gear, Shift+S, or hold the top-right corner 1.5 s)
 - **QR wait time:** 3 minutes (default) or No time limit.
@@ -64,7 +67,7 @@ Drop `.jpg/.png/.webp` files in `public/backgrounds/` (see the README.txt there)
 ## H. Modes, filters and stickers
 - **Modes:** *Single* (one photo) or *Photo Strip* (a strip of 3/4/6 shots). Guests switch with the toggle on the live screen; the operator can lock one mode (drawer → Mode). Strip layout (vertical / 2×2), date/time stamps and frame colours are on the review screen.
 - **Filters:** picked on the live screen; applied to the person (not the background).
-- **Stickers:** dragged onto the photo on the review screen. Built-ins are in `public/stickers/builtin/`; add your own image files to `public/stickers/` (sub-folders become category tabs; see `public/stickers/README.txt`). The list is rebuilt on every `wrangler dev` / `wrangler deploy` (or `npm run stickers`).
+- **Stickers:** dragged onto the photo on the review screen. Built-ins are in `app/public/stickers/builtin/`; add your own image files to `app/public/stickers/` (sub-folders become category tabs; see `app/public/stickers/README.txt`). The list is rebuilt on every `wrangler dev` / `wrangler deploy` (or `npm run stickers`).
 - **Print:** the result screen has a Print button (hide it in the drawer).
 
 ## I. Scanning the QR code with your phone (localhost does not work on a phone)
@@ -81,4 +84,4 @@ If the QR address is localhost, the result screen shows a warning under the QR c
 
 ## J. Keyboard & operator quick reference
 - **Space** take a picture · **Esc** cancel while the countdown / shots are running · **Enter** confirm / next guest · **Shift+S** open settings.
-- **Optional stickers** (e.g. Tung Tung Sahur) are switched on in settings → *Optional stickers*. Drop more files into `public/stickers/optional/` and they get their own switch.
+- **Optional stickers** (e.g. Tung Tung Sahur) are switched on in settings → *Optional stickers*. Drop more files into `app/public/stickers/optional/` and they get their own switch.

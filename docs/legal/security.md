@@ -13,7 +13,7 @@
 | Camera/microphone misuse | `Permissions-Policy` allows only the camera, only for this site; the microphone is never requested; the camera is released on the review/result screens. |
 | Phone numbers | Never leave the browser except inside the WhatsApp link the guest chooses to open; never stored. |
 | Vulnerable dependencies | `npm audit`: 0 known vulnerabilities at the time of writing. Run it again now and then (`npm audit`). Dependencies are pinned in `package-lock.json`. |
-| Secrets in Git | `.dev.vars`, `archive/`, `photobooth-data/`, `photos-export/` and `.wrangler/` are git-ignored. The repository contains no keys. |
+| Secrets in Git | `.dev.vars`, `archive/`, `app/photobooth-data/`, `app/photos-export/` and `.wrangler/` are git-ignored. The repository contains no keys. |
 
 ## Things you must still do yourself
 * **Never** commit your upload key (`.dev.vars`).
@@ -22,7 +22,7 @@
 * Keep Node.js, Chrome and Windows updated.
 * The `.claude/` folder in this repository (AI-assistant agents and plugin caches) is not part of the booth; you can delete
   it from your own copy to make downloads smaller.
-* Check you are allowed to use the logo, stickers and pictures (see `THIRD-PARTY-NOTICES.md`).
+* Check you are allowed to use the logo, stickers and pictures (see `docs/legal/third-party-notices.md`).
 
 ## Reporting a problem
 Open an issue on <https://github.com/unidotcon1/duck_booth/issues> (don't post photos or keys). For anything sensitive,

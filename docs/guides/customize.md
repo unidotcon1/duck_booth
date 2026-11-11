@@ -2,7 +2,7 @@
 
 How to add (and remove) **backgrounds, stickers, filter pictures, the logo and the event name**.
 
-> You only ever add files to folders inside the project's `public/` folder. After adding or deleting files in a folder, **restart the booth** (close the black window, start it again) and refresh the page. The stickers' in-app manager (below) needs no restart.
+> You only ever add files to folders inside the project's `app/public/` folder. After adding or deleting files in a folder, **restart the booth** (close the black window, start it again) and refresh the page. The stickers' in-app manager (below) needs no restart.
 
 ---
 
@@ -10,7 +10,7 @@ How to add (and remove) **backgrounds, stickers, filter pictures, the logo and t
 
 Backgrounds are the pictures guests can put behind themselves on the review screen.
 
-**Add:** copy image files into **`public/backgrounds/`**.
+**Add:** copy image files into **`app/public/backgrounds/`**.
 **Remove:** delete the file from that folder.
 
 | Requirement | |
@@ -21,7 +21,7 @@ Backgrounds are the pictures guests can put behind themselves on the review scre
 | Name | The file name becomes the label: `beach-party.jpg` → "Beach Party". Use letters, numbers, `-` or `_`. |
 | Order | Alphabetical. Start names with `01-`, `02-`, … to control the order. |
 
-**Optional extras** (create these small text files inside `public/backgrounds/`):
+**Optional extras** (create these small text files inside `app/public/backgrounds/`):
 
 - **Names in English and Chinese** — `names.json`:
   ```json
@@ -53,13 +53,13 @@ Stickers are the pictures guests drag onto their photo on the review screen.
 | Where they're kept | In this browser on this computer. Use the same browser and the same address (`http://localhost:8787`) each time. Clearing the browser's site data deletes them. |
 
 ### The file way (to ship stickers with the project, or move to another computer)
-Copy files into **`public/stickers/`**:
+Copy files into **`app/public/stickers/`**:
 
-- Files directly in `public/stickers/` appear in the **Mine** tab.
-- A **sub-folder** becomes its own tab. `public/stickers/christmas/tree.png` → tab "Christmas". Give it a Chinese label in `public/stickers/names.json`: `{ "christmas/": { "en": "Christmas", "zh": "圣诞" } }`.
-- To **delete** a sticker permanently: delete its file. (The built-in set is in `public/stickers/builtin/` — you can delete files from there too.)
-- **Hide all built-ins:** create `public/stickers/config.json` containing `{ "includeBuiltins": false }`.
-- **Optional (switch-on) stickers:** files in `public/stickers/optional/` are hidden until you tick them in **settings → Optional stickers** (e.g. Tung Tung Sahur).
+- Files directly in `app/public/stickers/` appear in the **Mine** tab.
+- A **sub-folder** becomes its own tab. `app/public/stickers/christmas/tree.png` → tab "Christmas". Give it a Chinese label in `app/public/stickers/names.json`: `{ "christmas/": { "en": "Christmas", "zh": "圣诞" } }`.
+- To **delete** a sticker permanently: delete its file. (The built-in set is in `app/public/stickers/builtin/` — you can delete files from there too.)
+- **Hide all built-ins:** create `app/public/stickers/config.json` containing `{ "includeBuiltins": false }`.
+- **Optional (switch-on) stickers:** files in `app/public/stickers/optional/` are hidden until you tick them in **settings → Optional stickers** (e.g. Tung Tung Sahur).
 
 Same picture requirements as above (transparent PNG/WebP/SVG, about 512 px, under 2 MB is best).
 
@@ -69,12 +69,12 @@ Same picture requirements as above (transparent PNG/WebP/SVG, about 512 px, unde
 
 The filter buttons show a built-in sample picture with each filter applied. To use your own preview picture for a filter:
 
-1. Save a picture into **`public/filters/`** — a square **240 × 240 px or larger** `.jpg`, `.png` or `.webp`, and **only images you have the right to use**.
-2. List it in `public/filters/overrides.json`, using the filter's id on the left:
+1. Save a picture into **`app/public/filters/`** — a square **240 × 240 px or larger** `.jpg`, `.png` or `.webp`, and **only images you have the right to use**.
+2. List it in `app/public/filters/overrides.json`, using the filter's id on the left:
    ```json
    { "sepia": "sepia.jpg", "noir": "noir.png" }
    ```
-   Filter ids: `none`, `bw`, `sepia`, `vivid`, `warm`, `cool`, `fade`, `dream`, `noir`, `beauty` (see `public/filters/README.txt` for the exact list).
+   Filter ids: `none`, `bw`, `sepia`, `vivid`, `warm`, `cool`, `fade`, `dream`, `noir`, `beauty` (see `app/public/filters/README.txt` for the exact list).
 
 Your picture is shown as it is (no filter is applied on top).
 
@@ -84,8 +84,8 @@ Your picture is shown as it is (no filter is applied on top).
 
 | Where it shows | File to replace | Notes |
 |---|---|---|
-| Camera screen (small badge) | `public/logo-crest.png` | The symbol only, transparent PNG, about 100 × 100 px or larger |
-| Result screen (big plate above the slot) | `public/logo.png` | Symbol + name, transparent PNG, about **1000 px wide** or more for a sharp print |
+| Camera screen (small badge) | `app/public/logo-crest.png` | The symbol only, transparent PNG, about 100 × 100 px or larger |
+| Result screen (big plate above the slot) | `app/public/logo.png` | Symbol + name, transparent PNG, about **1000 px wide** or more for a sharp print |
 
 Keep the same file names. Higher-resolution files look sharper.
 
