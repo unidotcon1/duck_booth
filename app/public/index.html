@@ -18,34 +18,35 @@
 
         <h1 class="sr-only" data-i18n="brand">Photo Booth</h1>
 
-        <div id="mode-toggle" class="mode-toggle" role="group" data-i18n-aria="mode.aria" aria-label="Photo mode">
-          <button type="button" data-mode="single" aria-pressed="true" data-i18n="mode.single">Single</button>
-          <button type="button" data-mode="strip" aria-pressed="false" data-i18n="mode.strip">Photo Strip</button>
-        </div>
-        <div id="shot-thumbs" class="shot-thumbs" hidden></div>
 
-        <div id="countdown" class="countdown" hidden aria-live="assertive">
-          <span id="shot-ind" class="shot-ind" hidden></span>
-          <span id="cd-num" class="cd-num"></span>
-          <span id="cd-sub" class="cd-sub"></span>
-        </div>
         <div id="flash" class="flash" hidden></div>
-        <div id="cap-bar" class="cap-bar" hidden>
-          <span data-i18n="cap.esc">Press Esc to cancel</span>
-          <button id="cap-cancel" type="button" data-i18n="cap.cancel">Cancel</button>
-        </div>
         <div id="camera-error" class="camera-error" hidden role="alert"></div>
       </div>
     </section>
 
     <div class="filter-col">
+      <div id="mode-toggle" class="mode-toggle" role="group" data-i18n-aria="mode.aria" aria-label="Photo mode">
+        <button type="button" data-mode="single" aria-pressed="true" data-i18n="mode.single">Single</button>
+        <button type="button" data-mode="strip" aria-pressed="false" data-i18n="mode.strip">Photo Strip</button>
+      </div>
+
       <div id="filter-gallery" class="gallery filter-gallery" role="radiogroup" data-i18n-aria="filter.aria" aria-label="Filter"></div>
       <p id="filter-name" class="gallery-name" aria-live="polite"></p>
+      <div id="shot-thumbs" class="shot-thumbs" hidden></div>
     </div>
 
     <div class="shutter-bar">
       <button id="shutter" class="shutter" type="button" data-i18n="shutter">Take a picture</button>
       <p id="hint" class="hint kbd-hint" data-i18n="kbd">or press Space</p>
+        <div id="countdown" class="countdown" hidden aria-live="assertive">
+          <span id="shot-ind" class="shot-ind" hidden></span>
+          <span id="cd-num" class="cd-num"></span>
+          <span id="cd-sub" class="cd-sub"></span>
+          <div id="cap-bar" class="cap-bar" hidden>
+              <span data-i18n="cap.esc">Press Esc to cancel</span>
+              <button id="cap-cancel" type="button" data-i18n="cap.cancel">Cancel</button>
+          </div>
+        </div>
     </div>
   </main>
 
