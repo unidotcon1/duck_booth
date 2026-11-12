@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Photo Booth launcher for macOS / Linux:  bash start.sh
-cd "$(dirname "$0")" || exit 1
+# Photo Booth launcher for macOS / Linux:  bash app/launchers/start-local.sh
+cd "$(dirname "$0")/.." || exit 1
 echo; echo " === Photo Booth ==="; echo
 if ! command -v node >/dev/null 2>&1; then
-  echo " Node.js is not installed. Download the LTS version from https://nodejs.org, install it, then run: bash start.sh"
+  echo " Node.js is not installed. Download the LTS version from https://nodejs.org, install it, then run: bash app/launchers/start-local.sh"
   exit 1
 fi
 export WRANGLER_SEND_METRICS=false

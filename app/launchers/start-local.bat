@@ -1,6 +1,6 @@
 @echo off
 title Photo Booth
-cd /d "%~dp0"
+cd /d "%~dp0.."
 echo.
 echo  === Photo Booth ===
 echo.
@@ -8,7 +8,7 @@ where node >nul 2>nul
 if errorlevel 1 (
   echo  Node.js is not installed.
   echo  1. Download the LTS version from https://nodejs.org
-  echo  2. Install it, then double-click start.bat again.
+  echo  2. Install it, then double-click start-tunnel.bat again.
   echo.
   pause
   exit /b 1
