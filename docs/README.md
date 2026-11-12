@@ -187,6 +187,8 @@ Everything for adding or removing **backgrounds, stickers, filter pictures, the 
 
 ### 👉 [Customize guide](guides/customize.md)
 
+Using a real camera such as a Nikon (setup, what guests experience, photo quality): [Nikon / real camera guide](guides/camera-nikon.md).
+
 More advanced options (putting it online with Cloudflare, security key for uploads, the settings reference) are in the [deployment & advanced guide](guides/deploy-and-advanced.md).
 
 ---
@@ -195,7 +197,7 @@ More advanced options (putting it online with Cloudflare, security key for uploa
 
 The settings are grouped into collapsible sections (General · Photo modes · Camera · Backgrounds & frame · Stickers · QR code & upload). Type in the **search box** at the top to find a setting in English or Chinese (try "camera", "upload", "字体"), press **Esc** to clear it, and use **Expand all / Collapse all**. The sections you leave open are remembered. Press **/** inside the settings to jump to the search box.
 
-QR wait time (3 minutes / no limit) · text size 1×–3× · send-to-phone on/off and default country code · single / strip mode and how many shots · strip layout · camera choice and framing · QR link address · optional stickers · manage stickers · print button on/off · settings button on/off.
+Countdown timer (none / 3 s / 5 s) · QR wait time (3 minutes / no limit) · text size 1×–3× · send-to-phone on/off and default country code · single / strip mode and how many shots · strip layout · camera choice and framing · QR link address · optional stickers · manage stickers · print button on/off · settings button on/off.
 Operators can also open settings by holding the invisible top-right corner for 1.5 seconds, or adding `?admin=1` to the address.
 
 ---
