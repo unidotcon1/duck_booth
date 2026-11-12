@@ -53,8 +53,11 @@ let booted = false;
 const onData = (buf) => {
   const s = String(buf);
   if (booted) return;
-  const m = s.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/i);
-  if (m) { booted = true; startBooth(m[0]); }
+  // the tunnel's own name looks like https://random-words.trycloudflare.com; cloudflared's error lines can mention https://api.trycloudflare.com, which is NOT the tunnel
+  for (const m of s.matchAll(/https:\/\/([a-z0-9-]+)\.trycloudflare\.com/gi)) {
+    if (m[1].toLowerCase() === "api") continue;
+    booted = true; startBooth(m[0]); break;
+  }
 };
 tun.stdout.on("data", onData); tun.stderr.on("data", onData);
 tun.on("exit", (code) => { if (!booted) { console.error("[tunnel] cloudflared stopped before giving an address (exit " + code + "). Check your internet connection."); } killAll(); process.exit(code || 0); });
@@ -69,17 +72,28 @@ function startBooth(publicUrl) {
   children.push(booth);
   booth.on("exit", (code) => { killAll(); process.exit(code || 0); });
   const open = `http://localhost:${PORT}/#k=${encodeURIComponent(token)}`;
-  setTimeout(() => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const getJson = async (url) => { const r = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(5000) }); if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); };
+  (async () => {
+    // 1. wait until the booth answers and confirm it received the tunnel address
+    let cfg = null;
+    for (let i = 0; i < 90 && !cfg; i++) { try { cfg = await getJson(`http://localhost:${PORT}/api/config`); } catch { await sleep(1000); } }
+    const boothOk = !!cfg, qrOk = !!cfg && cfg.publicBaseUrl === publicUrl;
+    // 2. check the tunnel really leads to the booth (a brand-new quick-tunnel name can take a few seconds to start answering)
+    let tunnelOk = false;
+    for (let i = 0; i < 25 && boothOk && !tunnelOk; i++) { try { const c = await getJson(publicUrl + "/api/config"); tunnelOk = c && c.publicBaseUrl === publicUrl; } catch { await sleep(1500); } }
     console.log("\n  ==========================================================");
-    console.log("   Photo Booth is running with a public QR address");
-    console.log("   QR codes will point to:  " + publicUrl);
-    console.log("   Booth screen (this laptop):  http://localhost:" + PORT);
-    console.log(generated ? "   Upload key: generated for this run (the browser gets it automatically)." : "   Upload key: taken from your .dev.vars file.");
+    console.log("   Photo Booth + tunnel");
+    console.log("   " + (boothOk ? "[OK]" : "[!!]") + " Booth is " + (boothOk ? "running:  http://localhost:" + PORT + "  (use this on the booth laptop)" : "NOT answering yet. Look above for errors."));
+    console.log("   " + (qrOk ? "[OK]" : "[!!]") + " QR codes point to:  " + publicUrl);
+    console.log("        " + (qrOk ? "Set automatically. Do NOT type anything into Settings > QR link address." : "The booth did not receive the address. Close this window and start again."));
+    console.log("   " + (tunnelOk ? "[OK]" : "[!!]") + " Tunnel reachable from the internet: " + (tunnelOk ? "yes (the booth answered through it)" : "NOT yet. Try opening the address above in a browser; if it never loads, restart this program."));
+    console.log("   Upload key: " + (generated ? "generated for this run (the browser gets it automatically)." : "taken from your .dev.vars file."));
     console.log("   Keep this window open. Press Ctrl+C to stop everything.");
     console.log("  ==========================================================\n");
     try {
       if (win) spawn("cmd", ["/c", "start", "", open.replace(/&/g, "^&")], { stdio: "ignore", detached: true }).unref();
       else spawn(process.platform === "darwin" ? "open" : "xdg-open", [open], { stdio: "ignore", detached: true }).unref();
     } catch { /* open the address by hand */ }
-  }, 12000);
+  })();
 }
