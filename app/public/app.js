@@ -885,7 +885,7 @@
     setState("countdown"); el.shutter.disabled = true; el.capBar.hidden = false;
     for (let i = 0; i < n; i++) {
       if (!video) break;
-      if (n > 1) { setI(el.shotInd, "shot.of", { i: i + 1, n }); el.shotInd.hidden = false; }
+      if (n > 1) { setI(el.shotInd, "shot.of", { i: i + 1, n }); el.shotInd.hidden = false; markSlot(i); }
       if (secs > 0) {
         for (let c = secs; c > 0; c--) {   // every photo gets the full countdown (3 or 5 seconds)
           el.countdown.hidden = false;
@@ -924,16 +924,22 @@
   }
 
   // Photo-strip progress: one numbered slot per photo; each slot fills with a thumbnail once that photo is taken.
+  // drawn as a small photo strip: white paper, a title, one framed slot per photo; the next photo's slot is highlighted
   function makeShotSlots(n) {
     el.shotThumbs.textContent = "";
-    for (let k = 1; k <= n; k++) { const d = document.createElement("div"); d.className = "shot-slot"; d.innerHTML = `<b aria-hidden="true">${k}</b>`; el.shotThumbs.append(d); }
+    const paper = document.createElement("div"); paper.className = "strip-paper"; paper.setAttribute("aria-hidden", "true");
+    const title = document.createElement("p"); title.className = "strip-title"; title.dataset.i18n = "strip.mine"; paper.append(title);
+    for (let k = 1; k <= n; k++) { const d = document.createElement("div"); d.className = "shot-slot"; d.innerHTML = `<b>${k}</b>`; paper.append(d); }
+    el.shotThumbs.append(paper); window.I18N.apply(el.shotThumbs);
     el.shotThumbs.hidden = false;
   }
+  const slotEls = () => el.shotThumbs.querySelectorAll(".shot-slot");
+  function markSlot(idx) { slotEls().forEach((s, k) => s.classList.toggle("current", k === idx)); }
   function addShotThumb(src, idx) {
-    const slot = el.shotThumbs.children[idx]; if (!slot) return;
-    const th = Math.round(96 * src.height / src.width), c = document.createElement("canvas"); c.width = 96; c.height = th;
-    c.getContext("2d").drawImage(src, 0, 0, 96, th);
-    slot.append(c); slot.classList.add("filled");
+    const slot = slotEls()[idx]; if (!slot) return;
+    const th = Math.round(120 * src.height / src.width), c = document.createElement("canvas"); c.width = 120; c.height = th;
+    c.getContext("2d").drawImage(src, 0, 0, 120, th);
+    slot.append(c); slot.classList.add("filled"); slot.classList.remove("current");
   }
 
   function showReview() {
