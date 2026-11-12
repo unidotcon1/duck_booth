@@ -104,8 +104,8 @@ button{font:inherit;color:inherit}
 
 /* hide strip + shutter during countdown / processing (keeps layout stable) */
 .gallery,.shutter-bar{transition:opacity .2s,visibility 0s}
-body[data-state=countdown] .gallery,body[data-state=countdown] .shutter-bar,
-body[data-state=processing] .gallery,body[data-state=processing] .shutter-bar{opacity:0;visibility:hidden}
+body[data-state=countdown] .gallery,body[data-state=countdown] .shutter-bar>.shutter,body[data-state=countdown] .shutter-bar>.kbd-hint,
+body[data-state=processing] .gallery,body[data-state=processing] .shutter-bar>.shutter,body[data-state=processing] .shutter-bar>.kbd-hint{opacity:0;visibility:hidden}
 
 /* ---------- language toggle ---------- */
 .lang{position:fixed;top:var(--s3);right:76px;z-index:31;display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;
@@ -523,3 +523,28 @@ body[data-state=countdown] .filter-col .gallery-name,body[data-state=waiting] .f
 .shot-slot.filled{border:3px solid #fff;border-style:solid;box-shadow:var(--shadow-1);background:none}
 .shot-slot canvas{position:absolute;inset:0;width:100%;height:100%;border:0;border-radius:0;box-shadow:none;object-fit:cover}
 .shot-slot.filled b{position:absolute;left:4px;top:3px;z-index:1;min-width:20px;padding:0 5px;border-radius:999px;background:rgb(15 17 20/.7);font-size:12px;line-height:20px;text-align:center}
+
+/* ======== CLEAN PREVIEW: nothing is drawn on top of the camera picture ========
+   mode toggle + strip progress -> right-hand column;  countdown, "Photo x of y", Esc/Cancel -> bar under the picture;
+   flash -> the page flashes around the picture (the picture itself stays clear). */
+.filter-col{position:relative}
+.filter-col .mode-toggle{position:static;z-index:auto;margin-bottom:var(--s3);flex:none}
+.filter-col .mode-toggle button{min-height:44px;padding:0 var(--s3);font-size:calc(var(--ui-scale) * 14px)}
+.filter-col .shot-thumbs{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);align-items:center;z-index:2;max-height:90%;overflow:hidden}
+
+.shutter-bar{position:relative;min-height:calc(clamp(88px,11vh,124px) + 56px)}
+.shutter-bar .countdown{position:absolute;inset:0;z-index:3;flex-direction:row;flex-wrap:wrap;gap:var(--s2) var(--s4);background:none;padding:0;border-radius:0;color:var(--ink)}
+.shutter-bar .cd-num{width:84px;font-size:calc(var(--ui-scale) * 52px);color:var(--ink);border:2px solid var(--ink);background:#fff;text-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+.shutter-bar .cd-sub{font-size:calc(var(--ui-scale) * 16px);color:var(--ink);text-shadow:none}
+.shutter-bar .shot-ind{font-size:calc(var(--ui-scale) * 15px)}
+.shutter-bar .cap-bar{position:static;transform:none;z-index:auto;padding:0;background:none;color:var(--text-mut);gap:var(--s3);font-size:calc(var(--ui-scale) * 14px)}
+.shutter-bar .cap-bar button{border:1px solid var(--ink);color:var(--ink);background:rgb(255 255 255/.6)}
+.shutter-bar .cap-bar button:hover{background:#fff}
+/* no-timer strip: the shutter stays usable, the capture panel takes the row below it */
+body[data-state=waiting] .shutter-bar .countdown{inset:auto 0 0 0;height:52px;background:none;padding:0;justify-content:center}
+body[data-state=waiting] .shutter-bar>.kbd-hint{visibility:hidden}
+
+/* flash: the page flashes white around the picture; the picture keeps showing the camera */
+.flash{background:none;box-shadow:0 0 0 100vmax rgb(255 255 255/.92);animation:flashPage .42s ease-out forwards;pointer-events:none}
+@keyframes flashPage{from{box-shadow:0 0 0 100vmax rgb(255 255 255/.92)}to{box-shadow:0 0 0 100vmax rgb(255 255 255/0)}}
+@media (prefers-reduced-motion:reduce){.flash{animation-duration:.01ms}}
