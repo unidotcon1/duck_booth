@@ -1032,7 +1032,7 @@
     .then((r) => (r.ok ? r.json() : null))
     .then((j) => { if (j && j.keyRequired === false) keyRequired = false; if (j && typeof j.publicBaseUrl === "string") serverQrBase = j.publicBaseUrl; if (j && Number(j.photoTtlDays) > 0) photoTtlDays = Number(j.photoTtlDays); })
     .catch(() => { /* keep required */ })
-    .then(() => paintKeyStatus());
+    .then(() => { paintKeyStatus(); paintQrAuto(); });
   function paintKeyStatus() {
     setI(el.keyStatus, keyRequired ? "drawer.keyReq" : "drawer.keyNot");
     el.resetToken.hidden = !keyRequired;
@@ -1103,10 +1103,18 @@
     const v = String(prefs.qrBase || "").trim().replace(/\/+$/, "");
     return /^https?:\/\/[^\s/?#]+(\/[^\s?#]*)?$/i.test(v) ? v : "";
   }
+  // The address phones should use. While the tunnel starter runs it supplies one (GET /api/config) and that always wins:
+  // a hand-typed address saved in this browser (an old tunnel name, a Wi-Fi address…) can no longer put a stale link in the QR code.
+  function qrAddress() { return (isLocalHost(location.hostname) && serverQrBase) || qrBaseUrl(); }
+  function paintQrAuto() {
+    const note = document.getElementById("qr-auto"), on = !!(serverQrBase && isLocalHost(location.hostname));
+    if (note) { note.hidden = !on; if (on) window.I18N.set(note, "drawer.qrAuto", { url: serverQrBase }); }
+    if (el.qrBase) el.qrBase.disabled = on;
+  }
   const isLocalHost = (h) => /^(localhost|127\.\d+\.\d+\.\d+|0\.0\.0\.0|\[?::1\]?)$/i.test(h);
   function renderQr(link, id) {
     let href = "";
-    const base = qrBaseUrl() || (isLocalHost(location.hostname) ? serverQrBase : "");
+    const base = qrAddress();
     if (base && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(id || "")) {
       href = `${base}/p/${id}?download`;
     } else {

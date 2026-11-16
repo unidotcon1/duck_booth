@@ -94,7 +94,9 @@ The steps above only work when the phone and the laptop share the same Wi-Fi. If
 
 That one script starts the tunnel, starts the booth with the new public address already filled into the QR codes, switches the upload password on for you (a random one for each run, or the one in your `.dev.vars` file), and opens the booth in your browser. Keep its window open; press `Ctrl+C` to stop. You can skip steps 2–4 below — they describe doing the same thing by hand.
 
-#### The manual way
+> **No "step 4" with the one-click starter.** The starter gives the booth its public address itself, so you do **not** type anything into *Settings → QR link address* (that box is greyed out and shows *"Automatic: the tunnel starter set https://…"*). An address you typed earlier is ignored while the starter runs. When the window shows three `[OK]` lines, you are ready. How it all works, in detail: [How the tunnel works](guides/how-the-tunnel-works.md).
+
+#### The manual way (only if you do **not** use the one-click starter — here step 4 is needed)
 **What you need to know first**
 - The laptop must stay **on, awake and online** while guests download. If it sleeps or loses internet, the QR codes stop working.
 - The address is **new every time** you start the tunnel (old QR codes stop working when you restart it). Download links stay valid only while the tunnel and the booth are running.

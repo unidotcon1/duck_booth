@@ -561,3 +561,5 @@ body[data-state=waiting] .shutter-bar>.kbd-hint{visibility:hidden}
 .strip-paper .shot-slot.filled b{left:5px;top:4px;background:rgb(255 255 255/.92);color:var(--ink);font-weight:700}
 @keyframes slotPulse{50%{box-shadow:0 0 0 2px var(--ink),0 0 0 9px rgb(255 255 255/.55),0 6px 16px rgb(0 0 0/.22)}}
 @media (prefers-reduced-motion:reduce){.strip-paper .shot-slot.current{animation:none}}
+
+.qr-auto{color:#1d5c2e;font-weight:600;word-break:break-all}
