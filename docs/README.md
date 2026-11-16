@@ -1,4 +1,4 @@
-# Photo Booth
+# Seesaw
 
 A browser photo booth for events. Guests take a single photo or a photo strip, pick a filter before the shot, then **after the shot** remove the background, choose a new one, add stickers, and scan a QR code to download it. English and 中文.
 
@@ -30,7 +30,7 @@ docs/                 these guides: README, customize, deploy, privacy, security
 ## Option A — Using the ZIP file (no Git needed)
 
 1. Download the project as a ZIP:
-   **<https://github.com/unidotcon1/duck_booth/archive/refs/heads/claude/vibrant-archimedes-gjxulv.zip>**
+   **<https://github.com/unidotcon1/Seesaw/archive/refs/heads/claude/vibrant-archimedes-gjxulv.zip>**
    (or open the repository on GitHub → green **Code** button → **Download ZIP**).
    > Once the work is merged into `main`, use `…/archive/refs/heads/main.zip` instead.
 2. **Right-click the ZIP → Extract All** (Windows) or double-click it (Mac). Put the folder somewhere easy, like your Desktop. Don't run it from inside the ZIP.
@@ -49,15 +49,15 @@ If Windows asks about the firewall, choose **Allow** for private networks (neede
 Needs [Git](https://git-scm.com/downloads) too.
 
 ```bash
-git clone https://github.com/unidotcon1/duck_booth.git
-cd duck_booth/app
+git clone https://github.com/unidotcon1/Seesaw.git
+cd Seesaw/app
 git checkout claude/vibrant-archimedes-gjxulv
 npm install
 npm start
 ```
 
 Then open **<http://localhost:8787>** in Chrome and allow the camera.
-Next time you only need `cd duck_booth/app` and `npm start`. To update later: `git pull`.
+Next time you only need `cd Seesaw/app` and `npm start`. To update later: `git pull`.
 
 ---
 
@@ -155,7 +155,7 @@ Take a photo, then scan the QR code with a phone that is on **mobile data** (swi
 ### Where your photos are stored (local use)
 When you run the booth on your own computer, **nothing is uploaded to the internet**. Each finished photo is saved here:
 
-> **`app/photobooth-data/`** — a folder inside the `app` folder (for example `C:\Users\you\Desktop\duck_booth\app\photobooth-data`)
+> **`app/photobooth-data/`** — a folder inside the `app` folder (for example `C:\Users\you\Desktop\Seesaw\app\photobooth-data`)
 
 - The pictures are inside `app/photobooth-data/v3/r2/photo-booth-photos/blobs/` with long computer-style names, so you can't open them directly.
 - **To get normal picture files** open Command Prompt in the `app` folder and run `npm run export-photos`. They are copied to **`app/photos-export/<date>/photo-<time>-<id>.jpg`**, ready to open, print or back up.
@@ -218,13 +218,17 @@ Operators can also open settings by holding the invisible top-right corner for 1
 
 ---
 
-## License and credit
+## Licence and credit
 
-Copyright (c) 2026 **unidotcon1**. Released under the **[MIT License](legal/LICENSE)**: anyone may use, copy, change and share this
-code, including for their own events, **as long as they keep the copyright notice and the licence text** (that is the credit).
-A friendly credit such as *"Photo Booth by unidotcon1 — https://github.com/unidotcon1/duck_booth"* is appreciated.
+Copyright (c) 2026 **unidotcon1**. Seesaw is released under the **[Seesaw Evaluation Licence](legal/LICENSE)**:
+
+- **Free for 60 days** from the first time you start it, for your own events or organisation.
+- **After that you need a licence** from the copyright holder (a small signed file). See the [licensing guide](guides/licensing.md).
+- You may not remove or work around the 60-day check, resell Seesaw, or host it as a service for others.
+- Keep the copyright notice and the credit *"Seesaw by unidotcon1 — https://github.com/unidotcon1/Seesaw"*.
+- Versions published before 16 November 2026 were MIT-licensed and stay MIT for the copies already given out.
 
 - Open-source parts and AI models used (all permissive licences): [the third-party notices](legal/third-party-notices.md) and the [`legal/licenses/`](legal/licenses) folder.
-- **The church logo, stickers, cursors and background pictures are *not* covered by the MIT licence** — see the table in the third-party notices and make sure you may use them.
+- **The church logo, stickers, cursors and background pictures are *not* covered by the Seesaw licence** — see the table in the third-party notices and make sure you may use them.
 
 *Cut-outs run in the browser using open-source models (MODNet, MediaPipe); photos never leave your computer unless you deploy it online.*

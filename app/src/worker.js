@@ -1,4 +1,4 @@
-// photo booth — Cloudflare Worker (API + share links). Static UI is served by the assets binding.
+// Seesaw — Cloudflare Worker (API + share links). Static UI is served by the assets binding.
 //
 // Routes
 //   POST /api/upload   kiosk-authenticated JPEG/PNG upload -> { id, url, downloadUrl, expiresAt }
@@ -37,6 +37,8 @@ const publicBase = (env) => {
   return /^https?:\/\/[^\s/?#]+(\/[^\s?#]*)?$/i.test(v) ? v : "";
 };
 const ttlDays = (env) => Math.max(1, Math.min(365, Number(env.PHOTO_TTL_DAYS) || 7));
+// Seesaw evaluation: the launcher passes LICENSE_EXPIRES; after that date NEW uploads stop (existing photo links keep working until they expire).
+const licenceExpired = (env) => { const t = Date.parse(env.LICENSE_EXPIRES || ""); return Number.isFinite(t) && Date.now() > t; };
 const keyRequired = (env) => typeof env.KIOSK_TOKEN === "string" && env.KIOSK_TOKEN.length > 0;
 
 // Constant-time-ish compare via SHA-256 digests (no length leak).
@@ -74,6 +76,7 @@ async function readLimited(request, limit) {
 
 async function handleUpload(request, env, ctx) {
   if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405, { Allow: "POST" });
+  if (licenceExpired(env)) return json({ error: "licence_expired" }, 403);
 
   // CORS: same-origin only. Browsers send Origin on cross-origin POSTs; reject anything foreign.
   const origin = request.headers.get("Origin");
@@ -152,7 +155,7 @@ async function loadPhoto(env, id) {
 const notFound = () => new Response("Not found", { status: 404, headers: { "Cache-Control": "no-store", ...SECURITY_HEADERS } });
 
 const LANDING_I18N = {
-  en: { lang: "en", title: "Your photo", alt: "Your photo booth picture", btn: "Download photo",
+  en: { lang: "en", title: "Your photo", alt: "Your Seesaw picture", btn: "Download photo",
         note: (d) => `On iPhone: press and hold the photo, then “Add to Photos”. This link is deleted automatically after ${d} days.`,
         priv: "Privacy", privText: "Anyone with this link can see the photo. You can delete it now:", del: "Delete this photo",
         gone: "Your photo has been deleted.", goneNote: "It can no longer be opened with this link." },
@@ -239,7 +242,7 @@ async function handleShare(request, env, url) {
     ETag: obj.httpEtag,
     ...SECURITY_HEADERS,
   };
-  if (wantsDownload) headers["Content-Disposition"] = `attachment; filename="photo-booth-${id.slice(0, 8)}.${ext}"`;
+  if (wantsDownload) headers["Content-Disposition"] = `attachment; filename="seesaw-${id.slice(0, 8)}.${ext}"`;
   return new Response(request.method === "HEAD" ? null : obj.body, { headers });
 }
 
@@ -247,7 +250,7 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     try {
-      if (url.pathname === "/api/config") return json({ keyRequired: keyRequired(env), publicBaseUrl: publicBase(env), photoTtlDays: ttlDays(env) });
+      if (url.pathname === "/api/config") return json({ keyRequired: keyRequired(env), publicBaseUrl: publicBase(env), photoTtlDays: ttlDays(env), licence: env.LICENSE_EXPIRES ? { kind: env.LICENSE_KIND || "trial", expires: env.LICENSE_EXPIRES } : null });
       if (url.pathname === "/api/upload") return await handleUpload(request, env, ctx);
       if (url.pathname.startsWith("/p/")) return await handleShare(request, env, url);
       if (url.pathname.startsWith("/api/")) return json({ error: "not_found" }, 404);

@@ -1,4 +1,4 @@
-// Photo Booth — tiny i18n layer (en + zh-CN). No inline script (CSP: script-src 'self').
+// Seesaw — tiny i18n layer (en + zh-CN). No inline script (CSP: script-src 'self').
 // Static HTML: data-i18n (text), data-i18n-aria, data-i18n-title, data-i18n-ph, data-i18n-alt.
 // Dynamic text: I18N.set(node, key, vars) stores key+vars on the node so a language switch re-renders it.
 // A var may be a DOM Node (e.g. a <b id="..."> counter) — it is moved into the {placeholder} slot.
@@ -8,7 +8,7 @@
 
   const DICT = {
     en: {
-      "brand": "Photo Booth",
+      "brand": "Seesaw",
       "aria.preview": "Live camera preview",
       "aria.bg": "Background",
       "aria.lang": "Language",
@@ -43,7 +43,7 @@
       "privacy.p4": "If you use Send to phone, your number is only used to open a WhatsApp message with your link. It is not stored.",
       "privacy.p5": "Children under 13 should use the booth with a parent or guardian, who should agree to this notice.",
       "privacy.contact": "Questions, or want your photo removed? Contact: {contact}",
-      "privacy.credit": "Photo Booth by {credit} · open source (MIT licence)",
+      "privacy.credit": "Seesaw by {credit} · evaluation licence",
       "drawer.showPrivacy": "Show privacy notice link", "drawer.privacyContact": "Privacy contact (shown in the notice)", "drawer.privacyContactPh": "booth@example.org",
       "ph.btn": "Send to phone", "ph.title": "Send the link to your phone", "ph.cc": "Country code", "ph.num": "Mobile number", "ph.pad": "Number pad",
       "ph.consent": "Your number is only used to open a WhatsApp message with your photo link. It is not saved or shared.",
@@ -86,6 +86,9 @@
       "res.fail": "Upload failed — your photo is safe here",
       "res.hint.ok": "Scan with your phone camera",
       "res.hint.fail": "Check the network connection, then try again.",
+      "res.hint.licence": "The Seesaw evaluation has ended, so new photos cannot be saved. Ask the booth operator.",
+      "drawer.licTrial": "Seesaw evaluation: {days} days left (ends {date}). See the licence in docs/legal.",
+      "drawer.licFull": "Seesaw licence valid until {date} ({days} days left).",
       "res.hint.unauth": "This kiosk needs an upload key. Please ask a host.",
       "res.invalid": "Invalid link",
       "res.again": "Next guest",
@@ -174,7 +177,7 @@
       "privacy.p4": "如果你使用“发送到手机”，你的号码仅用于打开带有链接的 WhatsApp 消息，不会被保存。",
       "privacy.p5": "13 岁以下的儿童应在父母或监护人陪同下使用，并由其同意本声明。",
       "privacy.contact": "如有疑问或需要删除照片，请联系：{contact}",
-      "privacy.credit": "Photo Booth 由 {credit} 制作 · 开源（MIT 许可证）",
+      "privacy.credit": "Seesaw 由 {credit} 制作 · 试用许可证",
       "drawer.showPrivacy": "显示隐私声明链接", "drawer.privacyContact": "隐私联系方式（显示在声明中）", "drawer.privacyContactPh": "booth@example.org",
       "ph.btn": "发送到手机", "ph.title": "把链接发送到你的手机", "ph.cc": "国家/地区代码", "ph.num": "手机号码", "ph.pad": "数字键盘",
       "ph.consent": "你的号码仅用于打开带有照片链接的 WhatsApp 消息，不会被保存或分享。",
@@ -217,6 +220,9 @@
       "res.fail": "上传失败，照片已安全保存在此",
       "res.hint.ok": "请用手机相机扫描二维码",
       "res.hint.fail": "请检查网络连接后重试。",
+      "res.hint.licence": "Seesaw 试用期已结束，无法保存新照片。请联系展台操作人员。",
+      "drawer.licTrial": "Seesaw 试用期：剩余 {days} 天（{date} 结束）。许可证见 docs/legal。",
+      "drawer.licFull": "Seesaw 许可证有效期至 {date}（剩余 {days} 天）。",
       "res.hint.unauth": "此设备需要上传密钥，请联系工作人员。",
       "res.invalid": "链接无效",
       "res.again": "下一位",

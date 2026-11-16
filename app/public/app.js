@@ -1,4 +1,4 @@
-// Photo Booth — browser app. No framework, no inline script (CSP: script-src 'self').
+// Seesaw — browser app. No framework, no inline script (CSP: script-src 'self').
 (() => {
   "use strict";
 
@@ -1027,12 +1027,20 @@
 
   // ---------- upload ----------
   let keyRequired = true;   // server decides (GET /api/config); assume required if unknown
-  let serverQrBase = "", photoTtlDays = 7;    // address phones can reach, provided by the start-tunnel script (GET /api/config)
+  let serverQrBase = "", photoTtlDays = 7, licInfo = null;    // address phones can reach, provided by the start-tunnel script (GET /api/config)
   const configReady = fetch("/api/config", { cache: "no-store" })
     .then((r) => (r.ok ? r.json() : null))
-    .then((j) => { if (j && j.keyRequired === false) keyRequired = false; if (j && typeof j.publicBaseUrl === "string") serverQrBase = j.publicBaseUrl; if (j && Number(j.photoTtlDays) > 0) photoTtlDays = Number(j.photoTtlDays); })
+    .then((j) => { if (j && j.keyRequired === false) keyRequired = false; if (j && typeof j.publicBaseUrl === "string") serverQrBase = j.publicBaseUrl; if (j && Number(j.photoTtlDays) > 0) photoTtlDays = Number(j.photoTtlDays); if (j && j.licence) licInfo = j.licence; })
     .catch(() => { /* keep required */ })
-    .then(() => { paintKeyStatus(); paintQrAuto(); });
+    .then(() => { paintKeyStatus(); paintQrAuto(); paintLicence(); });
+  function paintLicence() {
+    const n = document.getElementById("lic-note"); if (!n) return;
+    const t = licInfo && Date.parse(licInfo.expires);
+    n.hidden = !t;
+    if (!t) return;
+    const days = Math.max(0, Math.ceil((t - Date.now()) / 86400000)), date = new Date(t).toISOString().slice(0, 10);
+    window.I18N.set(n, licInfo.kind === "licensed" ? "drawer.licFull" : "drawer.licTrial", { days, date });
+  }
   function paintKeyStatus() {
     setI(el.keyStatus, keyRequired ? "drawer.keyReq" : "drawer.keyNot");
     el.resetToken.hidden = !keyRequired;
@@ -1079,12 +1087,13 @@
             store.del(TOKEN_KEY); token = await askToken({ rejected: true }); if (!token) throw new Error("unauthorized"); continue;
           }
           if (res.status === 429 || res.status >= 500) { if (attempt < UPLOAD_TRIES - 1) await sleep(1000 * 2 ** attempt); continue; }
+          if (res.status === 403) { const j = await res.json().catch(() => null); if (j && j.error === "licence_expired") throw new Error("licence_expired"); }
           if (!res.ok) throw new Error(`upload failed (${res.status})`);
           const data = await res.json();
           return renderQr(data.downloadUrl, data.id);
         } catch (e) {
           clearTimeout(to);
-          if (e.message?.startsWith("upload failed") || e.message === "unauthorized") throw e;
+          if (e.message?.startsWith("upload failed") || e.message === "unauthorized" || e.message === "licence_expired") throw e;
           if (attempt < UPLOAD_TRIES - 1) await sleep(1000 * 2 ** attempt);   // network error / timeout → retry
         }
       }
@@ -1092,7 +1101,7 @@
     } catch (e) {
       setStatus("res.fail", false);
       el.qr.classList.remove("fail"); void el.qr.offsetWidth; el.qr.classList.add("fail");
-      setI(el.qrHint, e.message === "unauthorized" ? "res.hint.unauth" : "res.hint.fail");
+      setI(el.qrHint, e.message === "unauthorized" ? "res.hint.unauth" : e.message === "licence_expired" ? "res.hint.licence" : "res.hint.fail");
       el.retry.hidden = false; setI(el.heading, "res.head.fail");
       uploading = false; if (qrWait !== "none") startReset(FAIL_RESET_MS);   // photo is safe on screen; free the kiosk for the next guest
     } finally { clearTimeout(slow); uploading = false; }

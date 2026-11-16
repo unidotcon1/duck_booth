@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="robots" content="noindex,nofollow">
   <meta name="theme-color" content="#c9ccd0">
-  <title>Photo Booth</title>
+  <title>Seesaw</title>
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/stickers.css">
 </head>
@@ -16,7 +16,7 @@
       <div class="frame">
         <canvas id="preview" data-i18n-aria="aria.preview" aria-label="Live camera preview"></canvas>
 
-        <h1 class="sr-only" data-i18n="brand">Photo Booth</h1>
+        <h1 class="sr-only" data-i18n="brand">Seesaw</h1>
 
 
         <div id="flash" class="flash" hidden></div>
@@ -344,6 +344,7 @@
             <small class="note" data-i18n="drawer.qrBaseHelp">Phones cannot open localhost. Use your computer's Wi-Fi address, e.g. http://192.168.1.23:8787, and start the server with --ip 0.0.0.0 (or deploy to Cloudflare). Leave empty to use the page address.</small>
           </label>
           <p id="key-status" class="note set-item" data-kw="upload key token password security 上传 密钥 密码" data-i18n="drawer.keyReq">Upload key: required</p>
+          <p id="lic-note" class="note set-item" hidden data-i18n-flow data-kw="licence license evaluation trial expire 许可证 试用 到期"></p>
           <button id="reset-token" class="link set-item" type="button" data-kw="upload key token password 上传 密钥 重置" data-i18n="drawer.resetKey">Reset upload key</button>
         </div>
       </details>

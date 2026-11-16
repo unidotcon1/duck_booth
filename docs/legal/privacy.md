@@ -14,13 +14,14 @@
 | Guest's phone number (Send to phone) | Used only inside the browser to open a WhatsApp message. **Not sent to the booth's server, not saved**, cleared when the dialog closes. | Seconds |
 | Operator settings (language, filter, QR address, contact text…) | Browser storage on the booth computer. | Until you clear the browser data |
 | Stickers you add in the app | Browser storage (IndexedDB) on the booth computer. | Until you delete them |
+| Seesaw licence check | Two tiny local files record the first-start date and the latest date seen (`app/photobooth-data/.seesaw-trial.json`, and `.seesaw/trial.json` in your user folder). No network, nothing is sent to anyone, no personal data. | Until you delete them |
 | Analytics / cookies / ads / third-party scripts | **None.** The app loads nothing from other websites. | — |
 
 The AI background removal runs **inside the browser on the booth computer**. Photos are not sent to any AI company.
 
 ## Where the photo files are stored (local use)
 
-* Folder: **`app/photobooth-data/`** inside the project folder (for example `C:\Users\you\Desktop\duck_booth\app\photobooth-data`).
+* Folder: **`app/photobooth-data/`** inside the project folder (for example `C:\Users\you\Desktop\Seesaw\app\photobooth-data`).
   Inside, `v3/r2/photo-booth-photos/blobs/` holds the pictures. The files have long hashed names and no `.jpg`, so you
   cannot open them directly — use the export script.
 * To get normal picture files: run **`npm run export-photos`**. They are copied to **`app/photos-export/<date>/photo-<time>-<id>.jpg`**.

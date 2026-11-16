@@ -1,4 +1,4 @@
-# photo booth — architecture audit ("grill") & what was changed
+# Seesaw — architecture audit ("grill") & what was changed
 
 ## Security findings in the original blueprint → fix applied
 | # | Finding | Fix in code |

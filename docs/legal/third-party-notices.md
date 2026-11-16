@@ -1,6 +1,6 @@
 # Third-party notices
 
-Photo Booth's own code is released under the [MIT License](LICENSE) (Copyright (c) 2026 unidotcon1).
+Seesaw's own code is licensed under the [Seesaw Evaluation Licence](LICENSE) (Copyright (c) 2026 unidotcon1). The components below keep their own licences, and the Seesaw licence does not restrict your rights in them.
 It bundles the open-source components below. Their licences require that their copyright notices and licence
 texts travel with the code, so the full texts are in the [`licenses/`](licenses) folder. Please keep that folder and
 this file if you copy or redistribute the project.
@@ -20,9 +20,9 @@ Development tools that are **not** shipped to guests: Wrangler / Miniflare (Clou
 "QR Code" is a registered trademark of DENSO WAVE INCORPORATED. "WhatsApp" is a trademark of Meta Platforms, Inc. and is
 only used to describe the optional chat link. This project is not affiliated with or endorsed by any of these companies.
 
-## Artwork and content — NOT covered by the MIT licence
+## Artwork and content — NOT covered by the Seesaw licence
 
-The MIT licence covers the **code** (and the built-in stickers, sample picture and cursor files that were created for
+The Seesaw licence covers the **code** (and the built-in stickers, sample picture and cursor files that were created for
 this project). The items below belong to other people, or their rights are unknown, so **check you are allowed to use
 them before running the booth in public, and remove or replace them if not**:
 

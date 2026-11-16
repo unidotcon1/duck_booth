@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Photo Booth launcher for macOS / Linux:  bash app/launchers/start-local.sh
+# Seesaw launcher for macOS / Linux:  bash app/launchers/start-local.sh
 cd "$(dirname "$0")/.." || exit 1
-echo; echo " === Photo Booth ==="; echo
+echo; echo " === Seesaw ==="; echo
 if ! command -v node >/dev/null 2>&1; then
   echo " Node.js is not installed. Download the LTS version from https://nodejs.org, install it, then run: bash app/launchers/start-local.sh"
   exit 1

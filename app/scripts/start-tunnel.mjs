@@ -10,6 +10,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { gate, licenceVars } from "./licence-gate.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const win = process.platform === "win32";
@@ -27,6 +28,7 @@ if (probe.error || probe.status !== 0) {
 
 // --- upload key ---
 let token = "";
+const lic = gate();   // stops here if the evaluation has ended
 const devVars = join(root, ".dev.vars");
 if (existsSync(devVars)) {
   const m = readFileSync(devVars, "utf8").match(/^\s*KIOSK_TOKEN\s*=\s*(.+?)\s*$/m);
@@ -66,7 +68,7 @@ setTimeout(() => { if (!booted) { console.error("[tunnel] no tunnel address afte
 // --- 2. booth ---
 function startBooth(publicUrl) {
   log("tunnel address:", publicUrl);
-  const args = ["wrangler", "dev", "--ip", "0.0.0.0", "--port", String(PORT), "--persist-to", "photobooth-data", "--var", `PUBLIC_BASE_URL:${publicUrl}`];
+  const args = ["wrangler", "dev", "--ip", "0.0.0.0", "--port", String(PORT), "--persist-to", "photobooth-data", "--var", `PUBLIC_BASE_URL:${publicUrl}`, ...licenceVars(lic)];
   if (generated) args.push("--var", `KIOSK_TOKEN:${token}`);
   const booth = spawn(win ? "npx.cmd" : "npx", args, { cwd: root, shell: win, stdio: "inherit", env: { ...process.env, WRANGLER_SEND_METRICS: "false" } });
   children.push(booth);
@@ -83,7 +85,7 @@ function startBooth(publicUrl) {
     let tunnelOk = false;
     for (let i = 0; i < 25 && boothOk && !tunnelOk; i++) { try { const c = await getJson(publicUrl + "/api/config"); tunnelOk = c && c.publicBaseUrl === publicUrl; } catch { await sleep(1500); } }
     console.log("\n  ==========================================================");
-    console.log("   Photo Booth + tunnel");
+    console.log("   Seesaw + tunnel");
     console.log("   " + (boothOk ? "[OK]" : "[!!]") + " Booth is " + (boothOk ? "running:  http://localhost:" + PORT + "  (use this on the booth laptop)" : "NOT answering yet. Look above for errors."));
     console.log("   " + (qrOk ? "[OK]" : "[!!]") + " QR codes point to:  " + publicUrl);
     console.log("        " + (qrOk ? "Set automatically. Do NOT type anything into Settings > QR link address." : "The booth did not receive the address. Close this window and start again."));

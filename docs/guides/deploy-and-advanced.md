@@ -1,13 +1,13 @@
-# Photo Booth — running it, deploying it, advanced settings
+# Seesaw — running it, deploying it, advanced settings
 
-> **Run every command in this guide inside the `app` folder** (`cd duck_booth/app`). The easy way to start the booth is `start-tunnel.bat` in the main folder (see the [README](../README.md)).
+> **Run every command in this guide inside the `app` folder** (`cd Seesaw/app`). The easy way to start the booth is `start-tunnel.bat` in the main folder (see the [README](../README.md)).
 
 ## A. On your laptop (fastest, no Cloudflare account needed)
 Requirements: Node 18+ and a webcam. The browser allows the camera on `http://localhost` (no HTTPS needed).
 
 ```bash
-git clone https://github.com/unidotcon1/duck_booth.git
-cd duck_booth
+git clone https://github.com/unidotcon1/Seesaw.git
+cd Seesaw
 git checkout claude/vibrant-archimedes-gjxulv   # (or stay on main once it is merged)
 cd app
 npm install
@@ -33,8 +33,8 @@ npx wrangler secret put KIOSK_TOKEN       # paste a long random string
 npx wrangler deploy
 ```
 
-Wrangler prints your URL, like `https://photo-booth.<your-subdomain>.workers.dev`.
-On the kiosk laptop open `https://photo-booth.<your-subdomain>.workers.dev/#k=<your KIOSK_TOKEN>` once. Guests' phones then open the QR link on the same domain.
+Wrangler prints your URL, like `https://seesaw.<your-subdomain>.workers.dev`.
+On the kiosk laptop open `https://seesaw.<your-subdomain>.workers.dev/#k=<your KIOSK_TOKEN>` once. Guests' phones then open the QR link on the same domain.
 
 ## C. Using the Nikon
 Install Nikon Webcam Utility (or an NDI/HDMI-capture virtual webcam), connect the camera, then in the operator drawer choose **Production** mode and pick the Nikon from the Camera list. Use a green backdrop with even lighting for clean keying.
