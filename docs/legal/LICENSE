@@ -1,21 +1,92 @@
-MIT License
+SEESAW EVALUATION LICENCE  (version 1.0, November 2026)
 
-Copyright (c) 2026 unidotcon1 (https://github.com/unidotcon1/duck_booth)
+Copyright (c) 2026 unidotcon1 (https://github.com/unidotcon1/Seesaw). All rights reserved except as stated below.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+DRAFT NOTICE: this licence was drafted with an AI assistant, not by a lawyer. The copyright holder should have it reviewed by a
+lawyer in their own country before relying on it (especially clauses 10 and 11, marked [ ]).
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+------------------------------------------------------------------------------------------------------------------------
+PLAIN-ENGLISH SUMMARY (this summary helps you; the numbered terms below are what count)
+  * You may try Seesaw free for 60 days from the first time you run it, for your own events or your own organisation.
+  * After 60 days you must stop using it, unless the copyright holder gives you a signed licence file.
+  * You may read and change the code for your own evaluation, but you may not remove or work around the 60-day check.
+  * Keep the copyright notice and the credit "Seesaw by unidotcon1".
+  * It comes with no warranty.
+------------------------------------------------------------------------------------------------------------------------
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+1. DEFINITIONS
+   "Seesaw" means this software: its source code, scripts, documentation and the artwork and sounds the copyright holder
+   created for it, in every version that carries this licence.
+   "Licensor" means unidotcon1, the copyright holder.
+   "You" means the person or organisation that installs or runs Seesaw.
+   "Evaluation Period" means the 60 consecutive days that begin the first time You start Seesaw on a computer.
+   "Full Licence" means a licence file for Seesaw, signed by the Licensor, that names You (or Your organisation) and an end date.
+
+2. EVALUATION GRANT
+   During the Evaluation Period the Licensor grants You a free, non-exclusive, non-transferable, non-sublicensable, revocable
+   licence to install, run and modify Seesaw on computers You control, for Your own personal use or the internal use of Your
+   organisation, including running it at events You host.
+
+3. WHEN THE EVALUATION ENDS
+   When the Evaluation Period ends You must stop running Seesaw and delete Your copies, unless You hold a Full Licence.
+   Photos taken with Seesaw belong to the people in them and to You; deleting Seesaw does not require deleting those photos.
+
+4. FULL LICENCE
+   A Full Licence replaces clause 3 for the period and scope written in the licence file. The Licensor may charge a fee or
+   attach conditions to a Full Licence. A Full Licence is personal to the named licensee and cannot be passed on.
+
+5. WHAT YOU MUST NOT DO
+   a) Remove, disable, bypass or tamper with the licence check, the evaluation end date or the licence file verification
+      (for example: deleting or editing the files that record the first start, changing the computer clock to gain days,
+      editing the scripts or the Worker so the check no longer runs, or forging a licence file).
+   b) Use Seesaw after the Evaluation Period without a Full Licence.
+   c) Sell, rent, lease, host as a service for others, or sublicense Seesaw, or include it in a product You sell.
+   d) Share Seesaw or a modified version of it with anyone else, except an unmodified copy of the complete package, including
+      this licence, so that the recipient can evaluate it under these same terms. A recipient's own Evaluation Period starts
+      when the recipient first runs it.
+   e) Remove or change the copyright notices, this licence, or the credit in clause 6.
+   f) Use Seesaw to break the law or to photograph or share pictures of people without their permission.
+
+6. CREDIT
+   Keep the notice "Seesaw by unidotcon1 - https://github.com/unidotcon1/Seesaw" visible in the documentation and wherever
+   Seesaw shows its credit (the privacy dialog). If You publish photos or material that show Seesaw, a credit is appreciated.
+
+7. OWNERSHIP
+   Seesaw is licensed, not sold. The Licensor keeps all rights not expressly granted. Changes You make for Your own use stay
+   Yours, but remain subject to this licence as parts of Seesaw.
+
+8. THIRD-PARTY COMPONENTS AND ARTWORK
+   Seesaw includes open-source components (for example MODNet, MediaPipe, ONNX Runtime Web, qrcode-generator). They stay under
+   their own licences, listed in docs/legal/third-party-notices.md and docs/legal/licenses/. This licence does not limit Your
+   rights in those components, and does not grant You any rights in them. Logos, stickers, cursors, backgrounds and other
+   artwork that the Licensor did not create are not licensed by this document; You need permission from their owners.
+
+9. PRIVACY AND THE LICENCE CHECK
+   The licence check runs on Your computer. It reads and writes two small local files that record the first-start date and
+   the latest date seen (app/photobooth-data/.seesaw-trial.json and .seesaw/trial.json in Your user folder) and reads
+   app/licence/. It does not connect to the internet and does not send any information to the Licensor.
+
+10. EARLIER VERSIONS  [ ]
+   Versions of Seesaw (then called "Photo Booth") published on or before 16 November 2026 were released under the MIT
+   Licence. Copies You already received under the MIT Licence stay under the MIT Licence for those versions; this licence
+   applies to versions published after that date.
+
+11. NO WARRANTY; LIMIT OF LIABILITY  [ ]
+   SEESAW IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. TO THE MAXIMUM EXTENT THE LAW ALLOWS, THE LICENSOR IS NOT LIABLE
+   FOR ANY CLAIM, LOSS OR DAMAGE (INCLUDING LOSS OF DATA OR PHOTOS, OR FAILURE OF A QR LINK OR TUNNEL) ARISING FROM THE USE OF
+   OR INABILITY TO USE SEESAW. You are responsible for getting the consent of the people You photograph and for following
+   the privacy and photography laws that apply to You. Nothing in this licence limits liability that cannot be limited by law.
+
+12. TERMINATION
+   This licence ends automatically if You break it or when the Evaluation Period or Full Licence ends. The Licensor may
+   also end it by written notice if You break it. On termination You must stop using Seesaw and delete Your copies.
+   Clauses 5, 7, 8, 11, 12 and 13 survive termination.
+
+13. GENERAL  [ ]
+   a) This is the whole agreement about Seesaw between You and the Licensor. If a part is unenforceable, the rest stays.
+   b) The Licensor's failure to enforce a right now does not waive it later.
+   c) Governing law and courts: the laws of [COUNTRY / STATE - the Licensor to fill in] apply, and its courts decide disputes,
+      unless Your local consumer law requires otherwise.
+   d) To ask for a Full Licence or permission, open an issue at https://github.com/unidotcon1/Seesaw/issues without posting
+      photos or keys, or use the contact the Licensor publishes there.

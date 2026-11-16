@@ -1,4 +1,4 @@
-# Customize your Photo Booth
+# Customize your Seesaw
 
 How to add (and remove) **backgrounds, stickers, filter pictures, the logo and the event name**.
 

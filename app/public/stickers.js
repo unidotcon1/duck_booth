@@ -1,4 +1,4 @@
-/* Photo Booth stickers: drag-and-drop sticker palette + placed-sticker editor.
+/* Seesaw stickers: drag-and-drop sticker palette + placed-sticker editor.
  * Classic script, no dependencies. API: window.Stickers
  *   init({layer, tray, getLang, onchange}), load(), clear(), count(), destroy(),
  *   refreshLabels(), renderTo(ctx, w, h), setEnabled(bool)

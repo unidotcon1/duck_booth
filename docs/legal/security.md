@@ -25,5 +25,5 @@
 * Check you are allowed to use the logo, stickers and pictures (see `docs/legal/third-party-notices.md`).
 
 ## Reporting a problem
-Open an issue on <https://github.com/unidotcon1/duck_booth/issues> (don't post photos or keys). For anything sensitive,
+Open an issue on <https://github.com/unidotcon1/Seesaw/issues> (don't post photos or keys). For anything sensitive,
 use GitHub's "Report a vulnerability" feature on the repository's Security tab.

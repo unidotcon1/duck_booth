@@ -1,4 +1,4 @@
-/* Photo Booth stickers: tray, placed-sticker chrome, drag ghost. Variables fall back to sane values. */
+/* Seesaw stickers: tray, placed-sticker chrome, drag ghost. Variables fall back to sane values. */
 
 /* ---------- tray ---------- */
 .stk-tray{display:flex;flex-direction:column;gap:var(--s2,8px);overflow:hidden;

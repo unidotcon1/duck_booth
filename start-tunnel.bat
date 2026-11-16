@@ -1,8 +1,8 @@
 @echo off
-title Photo Booth
+title Seesaw
 cd /d "%~dp0app"
 echo.
-echo  === Photo Booth ===
+echo  === Seesaw ===
 echo.
 where node >nul 2>nul
 if errorlevel 1 (
