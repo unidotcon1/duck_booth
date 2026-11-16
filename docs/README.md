@@ -152,16 +152,22 @@ Take a photo, then scan the QR code with a phone that is on **mobile data** (swi
 
 *For a permanent address that works even when your laptop is off, deploy to Cloudflare instead — see [the deployment guide](guides/deploy-and-advanced.md).*
 
-### Where your photos are stored (local use)
-When you run the booth on your own computer, **nothing is uploaded to the internet**. Each finished photo is saved here:
+### Where your photos are (local use)
+When you run the booth on your own computer, **nothing is uploaded to the internet**. Every photo gets a running number, **P001, P002 … P999**, shown on the result screen ("Photo number: P001") and used as the file name when you export. After P999 it starts again at P001. It also restarts at P001 when the booth holds no photos (a new event, or after you delete them).
 
-> **`app/photobooth-data/`** — a folder inside the `app` folder (for example `C:\Users\you\Desktop\Seesaw\app\photobooth-data`)
+**Easy way to get your pictures (normal files you can open, print and back up):**
 
-- The pictures are inside `app/photobooth-data/v3/r2/photo-booth-photos/blobs/` with long computer-style names, so you can't open them directly.
-- **To get normal picture files** open Command Prompt in the `app` folder and run `npm run export-photos`. They are copied to **`app/photos-export/<date>/photo-<time>-<id>.jpg`**, ready to open, print or back up.
-- **To delete:** `npm run delete-photos -- --expired` (only photos past their time limit) or `npm run delete-photos -- --all --yes` (everything — export first!).
+1. Open Command Prompt (Windows) or Terminal in the **`app`** folder.
+2. Run `npm run export-photos`.
+3. Open **`app/photos-export/<date>/`**: you will find `P001.jpg`, `P002.jpg`, … for each day.
+   (For example `C:\Users\you\Desktop\Seesaw\app\photos-export\2026-11-16\P001.jpg`.) Run it again any time; it only copies, it never changes the booth's photos.
+
+**Where the booth keeps them while it runs** (you can't open these directly): **`app/photobooth-data/`** (for example `C:\Users\you\Desktop\Seesaw\app\photobooth-data`). The pictures are inside `app/photobooth-data/v3/r2/photo-booth-photos/blobs/` with long computer-style names. The number P001 is stored with each photo, so always use the export to get the right file names.
+
+- **To delete:** `npm run delete-photos -- --expired` (only photos past their time limit) or `npm run delete-photos -- --all --yes` (everything, export first! The next photo is then P001 again).
 - Photos are removed automatically after **7 days** (change `PHOTO_TTL_DAYS` in `app/wrangler.jsonc`).
 - Both folders are excluded from Git, so they are never uploaded to GitHub. Back them up yourself if you want to keep them, and delete them after your event.
+- The phone download is named `seesaw-P001.jpg`.
 - Stickers you add in the app and your settings live in the browser's own storage on that computer, not in these folders.
 - A guest's phone saves its own copy when they download. The booth never keeps phone numbers.
 

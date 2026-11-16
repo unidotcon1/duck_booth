@@ -11,5 +11,6 @@ if (!h) process.exit(0);
 const objs = await listAll(h.env.PHOTOS), now = Date.now();
 const doomed = objs.filter((o) => args.has("--all") || (Number(o.customMetadata?.expiresAt) < now)).map((o) => o.key);
 for (let i = 0; i < doomed.length; i += 500) await h.env.PHOTOS.delete(doomed.slice(i, i + 500));
+if (doomed.length === objs.length) await h.env.PHOTOS.delete("meta/counter");   // nothing left: the next photo is P001 again
 console.log(`Deleted ${doomed.length} of ${objs.length} photo(s).`);
 await h.dispose();

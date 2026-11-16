@@ -24,7 +24,7 @@ The AI background removal runs **inside the browser on the booth computer**. Pho
 * Folder: **`app/photobooth-data/`** inside the project folder (for example `C:\Users\you\Desktop\Seesaw\app\photobooth-data`).
   Inside, `v3/r2/photo-booth-photos/blobs/` holds the pictures. The files have long hashed names and no `.jpg`, so you
   cannot open them directly — use the export script.
-* To get normal picture files: run **`npm run export-photos`**. They are copied to **`app/photos-export/<date>/photo-<time>-<id>.jpg`**.
+* To get normal picture files: run **`npm run export-photos`**. They are copied to **`app/photos-export/<date>/P001.jpg`, `P002.jpg`, …** (the running photo number P001–P999 that guests see on the result screen).
 * To delete: **`npm run delete-photos -- --expired`** (only old photos) or **`npm run delete-photos -- --all --yes`**
   (everything — export first if you want to keep any).
 * The folders `app/photobooth-data/` and `app/photos-export/` are excluded from Git, so they are never uploaded to GitHub.

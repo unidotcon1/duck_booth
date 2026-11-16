@@ -1068,7 +1068,7 @@
 
   async function upload(blob) {
     if (uploading) return;
-    uploading = true; el.retry.hidden = true; stopReset(); el.qr.classList.remove("ok", "fail"); phoneLink = ""; updatePhoneBtn();
+    uploading = true; el.retry.hidden = true; stopReset(); el.qr.classList.remove("ok", "fail"); phoneLink = ""; updatePhoneBtn(); showPhotoNo("");
     setI(el.heading, "res.head.ok"); setStatus("res.up", true); clearI(el.qrHint);
     const slow = setTimeout(() => { if (uploading) setStatus("res.slow", true); }, 6000);
     try {
@@ -1090,7 +1090,7 @@
           if (res.status === 403) { const j = await res.json().catch(() => null); if (j && j.error === "licence_expired") throw new Error("licence_expired"); }
           if (!res.ok) throw new Error(`upload failed (${res.status})`);
           const data = await res.json();
-          return renderQr(data.downloadUrl, data.id);
+          showPhotoNo(data.seq); return renderQr(data.downloadUrl, data.id);
         } catch (e) {
           clearTimeout(to);
           if (e.message?.startsWith("upload failed") || e.message === "unauthorized" || e.message === "licence_expired") throw e;
@@ -1121,6 +1121,11 @@
     if (el.qrBase) el.qrBase.disabled = on;
   }
   const isLocalHost = (h) => /^(localhost|127\.\d+\.\d+\.\d+|0\.0\.0\.0|\[?::1\]?)$/i.test(h);
+  function showPhotoNo(seq) {
+    const n = document.getElementById("photo-no"); if (!n) return;
+    const ok = /^P\d{3}$/.test(seq || ""); n.hidden = !ok;
+    if (ok) window.I18N.set(n, "res.no", { n: seq });
+  }
   function renderQr(link, id) {
     let href = "";
     const base = qrAddress();

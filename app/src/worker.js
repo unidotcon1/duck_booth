@@ -115,15 +115,32 @@ async function handleUpload(request, env, ctx) {
   if (!type || type !== declaredType) return json({ error: "content_mismatch" }, 415);
 
   const id = crypto.randomUUID(); // CSPRNG, 122 bits => not enumerable
+  const seq = await nextSeq(env).catch(() => null);   // "P001".."P999" for people (the link still uses the random id)
   const expiresAt = Date.now() + ttlDays(env) * 86400_000;
   await env.PHOTOS.put(`photos/${id}`, bytes, {
     httpMetadata: { contentType: type, cacheControl: "private, max-age=3600" },
-    customMetadata: { expiresAt: String(expiresAt) },
+    customMetadata: seq ? { expiresAt: String(expiresAt), seq } : { expiresAt: String(expiresAt) },
   });
 
   ctx?.waitUntil?.(purgeExpired(env).catch((e) => console.error("purge failed", e?.message)));
   const base = new URL(request.url).origin;
-  return json({ id, url: `${base}/p/${id}`, downloadUrl: `${base}/p/${id}?download`, expiresAt }, 201);
+  return json({ id, url: `${base}/p/${id}`, downloadUrl: `${base}/p/${id}?download`, expiresAt, seq }, 201);
+}
+
+// Running photo number: P001 ... P999, then it starts again at P001. The counter lives in R2 (key "meta/counter", outside "photos/") and is
+// advanced with a conditional write so two uploads at the same moment can never get the same number. It restarts at P001 whenever
+// the booth holds no photos (new event, or after the photos were deleted/expired).
+const SEQ_MAX = 999;
+async function nextSeq(env) {
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const cur = await env.PHOTOS.get("meta/counter");
+    let n = cur ? parseInt(await cur.text(), 10) || 0 : 0;
+    if (n > 0 && (await env.PHOTOS.list({ prefix: "photos/", limit: 1 })).objects.length === 0) n = 0;
+    n = n >= SEQ_MAX ? 1 : n + 1;
+    const put = await env.PHOTOS.put("meta/counter", String(n), { onlyIf: cur ? { etagMatches: cur.etag } : { etagDoesNotMatch: "*" } });
+    if (put) return "P" + String(n).padStart(3, "0");
+  }
+  return null;
 }
 
 // Real deletion of expired photos. R2 lifecycle rules do not exist in local mode, so every upload (at most every 10 minutes)
@@ -242,7 +259,8 @@ async function handleShare(request, env, url) {
     ETag: obj.httpEtag,
     ...SECURITY_HEADERS,
   };
-  if (wantsDownload) headers["Content-Disposition"] = `attachment; filename="seesaw-${id.slice(0, 8)}.${ext}"`;
+  const seq = /^P\d{3}$/.test(obj.customMetadata?.seq || "") ? obj.customMetadata.seq : id.slice(0, 8);
+  if (wantsDownload) headers["Content-Disposition"] = `attachment; filename="seesaw-${seq}.${ext}"`;
   return new Response(request.method === "HEAD" ? null : obj.body, { headers });
 }
 
